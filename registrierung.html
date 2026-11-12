@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registrierung</title>
+  <style>
+    :root { --bg:#000; --text:#fff; --card:#111; --border:#2a2a2a; --ok:#2ecc71; --err:#ff6b6b; --muted:#aaa; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:Arial, Helvetica, sans-serif;
+           min-height:100vh; display:flex; flex-direction:column; }
+    .header{ display:flex; justify-content:space-between; align-items:center; padding:12px 16px; gap:12px; }
+    .header img{ height:80px; width:auto; object-fit:contain; }
+    @media (max-width:750px){ .header img{ height:44px; } }
+    @media (max-width:480px){ .header img{ height:40px; } }
+
+    .wrap{ flex:1; display:flex; flex-direction:column; align-items:center; padding:16px; }
+    .card{ width:100%; max-width:700px; background:var(--card); border:1px solid var(--border);
+           border-radius:12px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,.35); }
+    h1{ margin:0 0 12px; font-size:24px; }
+    .row{ display:flex; gap:12px; align-items:center; margin:10px 0; }
+    .row label{ min-width:140px; color:#fff; }
+    .input, .select{ flex:1; padding:10px 12px; border-radius:10px; border:1px solid #333; background:#000; color:#fff; font-size:16px; }
+    .select:disabled{ opacity:.7; }
+    .hint{ font-size:13px; color:var(--muted); margin:4px 0 0 140px; }
+    .btn{ background:#fff; color:#000; border:none; border-radius:12px; padding:10px 18px; font-size:16px;
+          cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+    .btn[disabled]{ opacity:.6; cursor:default; }
+    .msg{ margin-top:10px; font-size:14px; }
+    .ok{ color:var(--ok); } .err{ color:var(--err); }
+
+    /* Home-Button klein & rund */
+    .home-btn{
+      position:fixed; left:18px; bottom:18px; z-index:1000;
+      width:48px; height:48px; border:none; border-radius:9999px;
+      display:grid; place-items:center; background:#fff; color:#000;
+      box-shadow:0 6px 18px rgba(0,0,0,.35); cursor:pointer;
+      transition:transform .12s ease, box-shadow .12s ease, opacity .2s ease; padding:0;
+    }
+    .home-btn:hover{ transform:translateY(-1px) scale(1.04); box-shadow:0 8px 22px rgba(0,0,0,.45); }
+    .home-btn:active{ transform:translateY(0) scale(0.98); box-shadow:0 4px 14px rgba(0,0,0,.3); }
+    .home-btn img{ width:22px; height:22px; display:block; pointer-events:none; }
+  </style>
+  <link rel="stylesheet" href="branding-layout.css">
+</head>
+<body>
+  <div class="header">
+    <img src="branding/atc.png" alt="Logo links">
+    <img src="branding/orgafunk.png" alt="Logo Mitte">
+    <img src="branding/drakory.png" alt="Logo rechts">
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <h1>Registrierung</h1>
+
+      <div class="row">
+        <label for="email">E-Mail</label>
+        <input id="email" type="email" class="input" autocomplete="email" required />
+      </div>
+
+      <div class="row">
+        <label for="pass">Passwort</label>
+        <input id="pass" type="password" class="input" autocomplete="new-password" required />
+      </div>
+
+      <div class="row">
+        <label for="role">Rolle</label>
+        <select id="role" class="select">
+          <option value="Admin">Admin</option>
+          <option value="Si-Fu">Si-Fu</option>
+          <option value="Trainer" selected>Trainer</option>
+        </select>
+      </div>
+
+      <!-- Nur für MASTER sichtbar -->
+      <div class="row" id="groupRow" style="display:none;">
+        <label for="group">Gruppe</label>
+        <select id="group" class="select">
+          <option disabled selected>Lade Gruppen…</option>
+        </select>
+      </div>
+      <div class="hint" id="groupHint" style="display:none;">Gruppen aus der OrgaFunk-Verwaltung.</div>
+
+      <div class="row" id="schoolRow">
+        <label for="school">Schule / Gruppe</label>
+        <select id="school" class="select">
+          <option disabled selected>Lade verfügbare Schulen…</option>
+        </select>
+      </div>
+      <div class="hint" id="schoolHint">Wähle eine Schule oder die gesamte Gruppe.</div>
+
+      <div class="row" style="justify-content:flex-end">
+        <button id="registerBtn" class="btn">Registrieren</button>
+      </div>
+
+      <div id="msg" class="msg"></div>
+    </div>
+  </div>
+
+  <button class="home-btn" onclick="location.href='hauptseite.html'" aria-label="Zur Startseite">
+    <img src="home.jpg" alt="">
+  </button>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
+
+  <!-- Zentrale Firebase-Config -->
+  <script src="firebase-config.js"></script>
+
+  <script>
+    /* ---------- Firebase Init ---------- */
+    if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+
+    /* ---------- Helpers ---------- */
+    const $ = s => document.querySelector(s);
+    const setMsg = (t, ok=false) => { const el = $("#msg"); el.textContent=t; el.className = "msg " + (ok?"ok":"err"); };
+
+    const normalize = r => {
+      r=(r||"").toLowerCase();
+      if(['administrator','admins','adminstrator'].includes(r)) r='admin';
+      if(['trainer/in','trainerin','coach'].includes(r)) r='trainer';
+      if(['si-fu','sifu','si fu','si‐fu','si‒fu'].includes(r)) r='si-fu';
+      return r;
+    };
+
+    function roleTitleCase(role){
+      role = (role||"").toLowerCase();
+      if (role === "si-fu") return "Si-Fu";
+      if (role === "admin") return "Admin";
+      if (role === "trainer") return "Trainer";
+      return role.charAt(0).toUpperCase() + role.slice(1);
+    }
+
+    function splitList(str){
+      if(!str) return [];
+      return String(str).split(/[,\n;]+/).map(s=>s.trim()).filter(Boolean);
+    }
+
+    // OrgaFunk: Gruppen liegen ausschließlich unter Schulen/MASTER/gruppen.
+    // Das Feld School darf eine Zeichenkette oder eine Liste sein.
+    async function loadAllGroups(){
+      const qs = await db.collection('Schulen').doc('MASTER').collection('gruppen').get();
+      return qs.docs.map(doc => {
+        const data = doc.data() || {};
+        const raw = data.School;
+        const schools = (Array.isArray(raw) ? raw : (typeof raw === 'string' ? [raw] : []))
+          .map(x => String(x).trim()).filter(Boolean);
+        return { id: doc.id, schools: [...new Set(schools)] };
+      }).sort((a,b) => a.id.localeCompare(b.id, 'de', {sensitivity:'base'}));
+    }
+
+    let ctx = { isMaster:false, groups:[], ready:false };
+
+    function fillSchools(groupId){
+      const schoolSel = $('#school');
+      schoolSel.replaceChildren();
+      const group = ctx.groups.find(g => g.id === groupId);
+      if(!group){
+        schoolSel.add(new Option('Keine Gruppe ausgewählt', ''));
+        schoolSel.disabled = true;
+        return;
+      }
+      // Gruppenzuordnung ist möglich, aber MASTER wird nie als Ziel angeboten.
+      schoolSel.add(new Option(`${group.id} (Gruppe)`, group.id));
+      for(const school of group.schools) schoolSel.add(new Option(school, school));
+      schoolSel.disabled = false;
+      // Wenn Schulen vorhanden sind, standardmäßig die erste Schule wählen.
+      schoolSel.value = group.schools[0] || group.id;
+      $('#schoolHint').textContent = 'Wähle eine Schule oder die gesamte Gruppe als Zuordnung.';
+    }
+
+    async function populateSelectors(){
+      const groupSel = $('#group');
+      const schoolSel = $('#school');
+      groupSel.replaceChildren();
+      schoolSel.replaceChildren();
+      $('#groupRow').style.display = '';
+      $('#groupHint').style.display = '';
+      ctx.groups = await loadAllGroups();
+      if(!ctx.groups.length){
+        groupSel.add(new Option('Keine Gruppen vorhanden', ''));
+        groupSel.disabled = true;
+        schoolSel.disabled = true;
+        setMsg('Keine Gruppen unter Schulen/MASTER/gruppen gefunden.');
+        return;
+      }
+      for(const group of ctx.groups) groupSel.add(new Option(group.id, group.id));
+      groupSel.disabled = false;
+      const previous = sessionStorage.getItem('regChosenGroup');
+      groupSel.value = ctx.groups.some(g => g.id === previous) ? previous : ctx.groups[0].id;
+      fillSchools(groupSel.value);
+      groupSel.onchange = () => {
+        sessionStorage.setItem('regChosenGroup', groupSel.value);
+        fillSchools(groupSel.value);
+      };
+      ctx.ready = true;
+      $('#registerBtn').disabled = false;
+      $('#groupHint').textContent = 'Gruppen aus der OrgaFunk-Verwaltung.';
+    }
+
+    /* ---------- Seite initialisieren ---------- */
+    $('#registerBtn').disabled = true;
+    auth.onAuthStateChanged(async user => {
+      if (!user) { location.href = 'index.html'; return; }
+      try {
+        // Sicherheitsrelevant: MASTER immer aus Firestore prüfen, nicht aus sessionStorage.
+        const snap = await db.collection('rollen').doc(user.uid).get();
+        const data = snap.exists ? snap.data() : {};
+        ctx.isMaster = normalize(data.role) === 'admin' && data.school === 'MASTER';
+        if(!ctx.isMaster){
+          $('#groupRow').style.display = 'none';
+          $('#groupHint').style.display = 'none';
+          $('#school').disabled = true;
+          setMsg('Die Registrierung neuer Benutzer ist derzeit nur für das MASTER-Konto freigegeben.');
+          return;
+        }
+        await populateSelectors();
+      }catch(err){
+        console.error('Registrierung initialisieren:', err);
+        setMsg('Gruppen konnten nicht geladen werden: ' + (err.message || err));
+      }
+    });
+
+    /* ---------- Registrierung ---------- */
+    $("#registerBtn").addEventListener("click", async ()=>{
+      const email = $("#email").value.trim();
+      const pass  = $("#pass").value;
+      let role    = $("#role").value.toLowerCase();
+      let chosen  = $("#school").value; // kann Gruppe ODER Schule sein
+
+      if (!email || !pass) { setMsg("Bitte E-Mail und Passwort eingeben."); return; }
+
+      if(!ctx.isMaster || !ctx.ready){
+        setMsg('Keine Berechtigung zur Registrierung.'); return;
+      }
+      const selectedGroup = ctx.groups.find(g => g.id === $('#group').value);
+      if(!selectedGroup || !new Set([selectedGroup.id, ...selectedGroup.schools]).has(chosen)
+         || chosen === 'MASTER'){
+        setMsg('Bitte eine gültige Gruppe oder Schule auswählen.'); return;
+      }
+
+      const btn = $("#registerBtn");
+      btn.disabled = true;
+      setMsg("Erstelle Benutzer…", true);
+
+      const secondaryName = "secondary-" + Date.now();
+      let secondaryApp = null;
+
+      try {
+        // sekundäre App verwenden (damit aktueller Admin eingeloggt bleibt)
+        secondaryApp = firebase.initializeApp(window.firebaseConfig, secondaryName);
+        const secAuth = secondaryApp.auth();
+
+        // 1) Nutzer anlegen
+        const cred = await secAuth.createUserWithEmailAndPassword(email, pass);
+        const newUid = cred.user.uid;
+
+        // 2) Rollen-Dokument setzen: school = gewählte Gruppe ODER Schule
+        await db.collection("rollen").doc(newUid).set({ role, school: chosen });
+
+        // 3) Erfolg
+        setMsg("✅ Nutzer registriert (Auth + Firestore).", true);
+
+        // Keine Realtime-Database- oder Legacy-WTplus-Schreibzugriffe.
+
+        // 5) Formular resetten
+        $("#email").value = "";
+        $("#pass").value = "";
+        $("#role").value = "Trainer";
+
+      } catch (err) {
+        console.error(err);
+        let human = "Registrierung fehlgeschlagen.";
+        if (err.code === "auth/email-already-in-use") human = "Diese E-Mail wird bereits verwendet.";
+        else if (err.code === "auth/invalid-email")   human = "E-Mail-Adresse ist ungültig.";
+        else if (err.code === "auth/weak-password")   human = "Passwort ist zu schwach.";
+        else if (String(err).includes("Permission"))  human = "Keine Berechtigung (Regeln prüfen).";
+        setMsg("❌ " + human);
+      } finally {
+        if (secondaryApp) { secondaryApp.delete().catch(()=>{}); }
+        btn.disabled = false;
+      }
+    });
+  </script>
+  <script src="branding-layout.js"></script>
+</body>
+</html>

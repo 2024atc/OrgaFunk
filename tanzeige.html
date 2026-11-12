@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trainingszeiten – Übersicht</title>
+  <style>
+    :root{ --bg:#000; --text:#fff; --muted:#aaa; --border:#2a2a2a; }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; background:var(--bg); color:var(--text);
+      font-family:Arial, Helvetica, sans-serif;
+      -webkit-font-smoothing:antialiased;
+      min-height:100vh; display:flex; flex-direction:column;
+    }
+    .wrap{ width:100%; max-width:960px; margin:0 auto; padding:20px 16px 60px; }
+    h1{ margin:0 0 8px; font-size:26px; text-align:center; }
+    .status{ color:var(--muted); font-size:14px; text-align:center; margin:6px 0 14px; }
+
+    .day{ margin-top:22px; border-top:1px solid var(--border); padding-top:14px; }
+    .day h2{ margin:0 0 8px; font-size:18px; color:#2ecc71; letter-spacing:.2px; }
+
+    .slot{
+      background:#111; border:1px solid var(--border);
+      border-radius:10px; padding:10px 14px; margin-bottom:8px;
+    }
+    .slot .what{ font-weight:bold; font-size:16px; color:#fff; margin-bottom:4px; }
+    .slot .time{ color:#ccc; font-size:15px; margin-bottom:6px; }
+    .slot .trainers{ color:#aaa; font-size:14px; }
+    .slot .trainers b{ color:#fff; }
+  </style>
+  <link rel="stylesheet" href="branding-layout.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Trainingszeiten – Übersicht</h1>
+    <div id="status" class="status">Lade Daten…</div>
+    <div id="schedule"></div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <script>
+  if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+  const db = firebase.firestore();
+
+  const DAYS = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
+  const statusEl = document.getElementById("status");
+  const root = document.getElementById("schedule");
+
+  // ----------- Schule bestimmen -----------
+  let activeSchool = sessionStorage.getItem("activeSchool") || sessionStorage.getItem("school") || "master";
+  activeSchool = activeSchool.toLowerCase();
+
+  statusEl.textContent = `Lade Trainingszeiten für ${activeSchool.toUpperCase()}…`;
+
+  // ----------- Trainings laden -----------
+  async function loadTrainings() {
+    try {
+      const snap = await db.collection("trainingszeiten")
+        .doc(activeSchool)
+        .collection("trainingszeiten")
+        .get();
+
+      if (snap.empty) {
+        statusEl.textContent = "Keine Trainingszeiten gefunden.";
+        root.innerHTML = "";
+        return;
+      }
+
+      statusEl.textContent = "";
+
+      const trainings = snap.docs.map(d => d.data());
+
+      // Sortierung:
+      // 1. nach "order", falls vorhanden
+      // 2. falls kein/gleicher order: nach Wochentag
+      // 3. dann nach Startzeit
+      trainings.sort((a,b) => {
+        const ao = (typeof a.order === "number") ? a.order : Number.MAX_SAFE_INTEGER;
+        const bo = (typeof b.order === "number") ? b.order : Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+
+        const ai = DAYS.indexOf(a.day);
+        const bi = DAYS.indexOf(b.day);
+        if (ai !== bi) return ai - bi;
+
+        const as = a.start || "";
+        const bs = b.start || "";
+        return as.localeCompare(bs);
+      });
+
+      renderTrainings(trainings);
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Fehler beim Laden der Trainingszeiten.";
+    }
+  }
+
+  // ----------- Darstellung -----------
+  function renderTrainings(trainings) {
+    root.innerHTML = "";
+
+    let currentDay = null;
+    let dayDiv = null;
+
+    for (const t of trainings) {
+      // neuen Tages-Block beginnen, wenn Tag sich ändert
+      if (t.day !== currentDay) {
+        currentDay = t.day;
+        dayDiv = document.createElement("div");
+        dayDiv.className = "day";
+        dayDiv.innerHTML = `<h2>${currentDay}</h2>`;
+        root.appendChild(dayDiv);
+      }
+
+      const slot = document.createElement("div");
+      slot.className = "slot";
+      slot.innerHTML = `
+        <div class="what">${t.what || ""}</div>
+        <div class="time">${t.start || ""}–${t.end || ""}</div>
+        <div class="trainers">Trainer: <b>${(t.trainers || []).join(", ") || "-"}</b></div>
+      `;
+      dayDiv.appendChild(slot);
+    }
+  }
+
+  // ----------- Start -----------
+  loadTrainings();
+  </script>
+  <script src="branding-layout.js"></script>
+</body>
+</html>

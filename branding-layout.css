@@ -1,0 +1,25 @@
+/* OrgaFunk globaler Header/Footer. Logos im Footer niemals dynamisch überschreiben. */
+:root{--of-head:76px;--of-foot:65px}
+html{min-height:100%;}
+body.of-branded{padding-top:var(--of-head)!important;padding-bottom:var(--of-foot)!important;min-height:100vh;min-height:100dvh;box-sizing:border-box;}
+#of-brand-header,#of-brand-footer{position:fixed!important;left:0;right:0;width:100%;display:grid!important;grid-template-columns:1fr 1fr 1fr;align-items:center;background:#071827;color:#fff;border-color:#24465b;z-index:1900;box-sizing:border-box;padding:5px 16px;}
+#of-brand-header{top:0;height:var(--of-head);border-bottom:1px solid #24465b;}
+#of-brand-footer{bottom:0;height:var(--of-foot);border-top:1px solid #24465b;}
+.of-brand-slot{min-width:0;display:flex;align-items:center;justify-content:center;height:100%;}
+.of-brand-slot:first-child{justify-content:flex-start}.of-brand-slot:last-child{justify-content:flex-end}
+#of-brand-header img,#of-brand-footer img{display:block;object-fit:contain;width:auto;max-width:100%;height:auto;max-height:60px;}
+#of-brand-header .of-brand-slot:nth-child(2) img{max-width:min(100%,340px)}
+#of-brand-footer img{max-height:48px}#of-brand-footer .of-brand-slot:nth-child(2) img{max-width:min(100%,260px)}
+/* Hauptseite: eigene Nav-Höhenberechnung nicht zusätzlich zum Markenrahmen anwenden. */
+body.of-branded:has(#navMenu){height:100vh;height:100dvh;overflow:hidden;}
+body.of-branded:has(#navMenu) main{min-height:0;flex:1;overflow:hidden;}
+body.of-branded #navMenu{height:auto!important;max-height:100%!important;margin-top:0!important;position:relative!important;top:auto!important;overflow-y:auto;}
+body.of-branded #toggleNavBtn{top:calc(var(--of-head) + 8px)!important;}
+body.of-branded:has(#navMenu) .content{min-height:0;overflow:auto;}
+@media(max-width:700px){:root{--of-head:62px;--of-foot:54px}#of-brand-header,#of-brand-footer{padding:4px 8px}#of-brand-header img{max-height:48px}#of-brand-footer img{max-height:38px}#of-brand-header .of-brand-slot:nth-child(2) img{max-width:100%}}
+
+/* Schwebende Home-Schaltflächen stets oberhalb des festen Marken-Footers. */
+body.of-branded .home-btn {
+  bottom: calc(var(--of-foot) + 18px) !important;
+  z-index: 1800;
+}

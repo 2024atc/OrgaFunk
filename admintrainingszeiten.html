@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trainingszeiten (Admin)</title>
+  <style>
+    body {
+      margin:0; background:#000; color:#fff; font-family:Arial,Helvetica,sans-serif;
+      display:flex; flex-direction:column; align-items:center;
+    }
+    /* HEADER (identisch wie andere Seiten) */
+    .header{
+      display:flex; justify-content:space-between; align-items:center;
+      padding:12px 16px; gap:12px; border-bottom:1px solid #222; width:100%;
+    }
+    .header img{ height:80px; width:auto; object-fit:contain; }
+    @media (max-width:750px){ .header img{ height:44px; } }
+    @media (max-width:480px){ .header img{ height:40px; } }
+
+    .top-bar{
+      display:flex;justify-content:space-between;align-items:center;
+      width:100%;max-width:900px;flex-wrap:wrap;gap:10px;
+      padding:20px;
+    }
+    .btn{
+      background:#fff;color:#000;border:none;border-radius:8px;
+      padding:8px 12px;font-weight:bold;cursor:pointer;
+    }
+    .btn.ghost{background:transparent;color:#fff;border:1px solid #333;}
+    select, input[type="text"], input[type="time"]{
+      background:#111;color:#fff;border:1px solid #333;border-radius:8px;padding:6px 8px;
+    }
+    select[disabled]{opacity:.75; cursor:not-allowed;}
+    .wrap{max-width:900px;width:100%;margin-top:10px;padding:0 20px 40px;}
+    .card{
+      background:#111;border:1px solid #333;border-radius:10px;
+      padding:12px 16px;margin-bottom:10px;
+    }
+    .trainers{display:flex;flex-direction:column;gap:4px;margin-top:8px;}
+    .hint{color:#aaa;font-size:14px;margin-top:12px;}
+    .day-label{font-weight:bold;color:#2ecc71;}
+
+    /* Home-Button (optional, wie die anderen Seiten) */
+    .home-btn{
+      position:fixed; left:18px; bottom:18px;
+      border:none; background:#fff; color:#000;
+      border-radius:50%; padding:10px; cursor:pointer;
+      box-shadow:0 2px 6px rgba(0,0,0,.35); z-index:1000;
+    }
+    .home-btn img{ width:32px; height:32px; display:block; }
+  </style>
+  <link rel="stylesheet" href="branding-layout.css">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header" id="header">
+    <img id="logo-left" src="branding/atc.png" alt="Logo links">
+    <img id="logo-center" src="branding/orgafunk.png" alt="Logo Mitte">
+    <img id="logo-right" src="branding/drakory.png" alt="Logo rechts">
+  </div>
+
+  <div class="top-bar">
+    <h1>Trainingszeiten</h1>
+    <!-- Dropdown zeigt nur die aktive Schule und ist deaktiviert -->
+    <select id="schoolSelect" disabled></select>
+    <button id="addTrainingBtn" class="btn" style="display:none;">➕ Training hinzufügen</button>
+  </div>
+  <div id="schedule" class="wrap"></div>
+
+  <!-- Home-Button (falls gewünscht) -->
+  <button class="home-btn" onclick="location.href='hauptseite.html'">
+    <img src="home.jpg" alt="Home">
+  </button>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+<script src="schullogos.js"></script>
+
+  <script>
+  if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+  const auth=firebase.auth();
+  const db=firebase.firestore();
+
+  const DAYS=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
+  const $=id=>document.getElementById(id);
+
+  let STATE={
+    school:'',
+    role:'user',
+    canEdit:false,
+    trainings:[]
+  };
+
+  const COL = school => db.collection('trainingszeiten').doc(school).collection('trainingszeiten');
+
+  // ---------- Reihenfolge tauschen ----------
+  async function moveTraining(index, direction){
+    const newIndex = index + direction;
+    if(newIndex < 0 || newIndex >= STATE.trainings.length) return;
+
+    const a = STATE.trainings[index];
+    const b = STATE.trainings[newIndex];
+
+    // Fallback-Order, falls alte Einträge noch kein order-Feld haben
+    if (typeof a.order !== 'number') a.order = index + 1;
+    if (typeof b.order !== 'number') b.order = newIndex + 1;
+
+    // Werte tauschen
+    const tmpOrder = a.order;
+    a.order = b.order;
+    b.order = tmpOrder;
+
+    // Array lokal tauschen (für sofortige Anzeige)
+    STATE.trainings[index]   = b;
+    STATE.trainings[newIndex]= a;
+
+    // Neu sortieren nach order und neu rendern
+    STATE.trainings.sort((x,y)=> (x.order||0) - (y.order||0));
+    renderTrainings();
+
+    // In Firestore speichern
+    try{
+      const batch = db.batch();
+      batch.update(COL(STATE.school).doc(a.id), { order: a.order });
+      batch.update(COL(STATE.school).doc(b.id), { order: b.order });
+      await batch.commit();
+    }catch(e){
+      console.error(e);
+      alert('Reihenfolge konnte nicht gespeichert werden. Seite wird neu geladen.');
+      await loadTrainings(STATE.school);
+    }
+  }
+
+  // ---------- Lade Trainings (sortiert nach order) ----------
+  async function loadTrainings(school){
+    const col = await COL(school).get();
+    STATE.trainings = col.docs.map(d => ({id:d.id, ...d.data()}));
+
+    // Sortierung NUR hier: erst nach order, dann (falls order fehlt/gleich) nach Wochentag
+    STATE.trainings.sort((a,b)=>{
+      const ao = (typeof a.order === 'number') ? a.order : 0;
+      const bo = (typeof b.order === 'number') ? b.order : 0;
+      if (ao !== bo) return ao - bo;
+      return DAYS.indexOf(a.day) - DAYS.indexOf(b.day);
+    });
+
+    renderTrainings();
+  }
+
+  // ---------- Render (mit Bearbeiten/Löschen + Hoch/Runter) ----------
+  function renderTrainings(){
+    const wrap=$('schedule');
+    wrap.innerHTML="";
+    if(!STATE.school){
+      wrap.innerHTML="<div class='hint'>Bitte zuerst auf der Hauptseite eine Schule wählen.</div>";
+      return;
+    }
+    if(STATE.trainings.length===0){
+      wrap.innerHTML="<div class='hint'>Keine Trainingszeiten eingetragen.</div>";
+      return;
+    }
+
+    STATE.trainings.forEach((t, index)=>{
+      const card=document.createElement('div');
+      card.className='card';
+
+      const info=document.createElement('div');
+      info.innerHTML=`
+        <div><span class="day-label">${t.day}</span> – <b>${t.what||''}</b></div>
+        <div>${t.start||''}–${t.end||''}</div>
+        <div>Trainer: ${(t.trainers||[]).join(', ')||'-'}</div>
+      `;
+      card.appendChild(info);
+
+      if(STATE.canEdit){
+        const btnRow=document.createElement('div');
+        btnRow.style.marginTop='8px';
+        btnRow.style.display='flex';
+        btnRow.style.gap='8px';
+        btnRow.style.flexWrap='wrap';
+
+        // Reihenfolge-Buttons
+        const upBtn=document.createElement('button');
+        upBtn.className='btn ghost';
+        upBtn.textContent='⬆️ Nach oben';
+        upBtn.disabled = (index === 0);
+        upBtn.onclick = () => moveTraining(index, -1);
+
+        const downBtn=document.createElement('button');
+        downBtn.className='btn ghost';
+        downBtn.textContent='⬇️ Nach unten';
+        downBtn.disabled = (index === STATE.trainings.length - 1);
+        downBtn.onclick = () => moveTraining(index, +1);
+
+        // Bearbeiten / Löschen
+        const editBtn=document.createElement('button');
+        editBtn.className='btn ghost';
+        editBtn.textContent='✏️ Bearbeiten';
+
+        const deleteBtn=document.createElement('button');
+        deleteBtn.className='btn ghost';
+        deleteBtn.textContent='🗑️ Löschen';
+
+        editBtn.onclick=()=>openEditForm(t,card);
+        deleteBtn.onclick=async()=>{
+          if(!confirm('Dieses Training wirklich löschen?')) return;
+          try{
+            await COL(STATE.school).doc(t.id).delete();
+            await loadTrainings(STATE.school);
+          }catch(e){
+            console.error(e);
+            alert('Fehler beim Löschen.');
+          }
+        };
+
+        btnRow.append(upBtn,downBtn,editBtn,deleteBtn);
+        card.appendChild(btnRow);
+      }
+
+      wrap.appendChild(card);
+    });
+  }
+
+  // ---------- Formular zum Bearbeiten eines bestehenden Trainings ----------
+  function openEditForm(training, card){
+    card.innerHTML=''; // Karte leeren und Formular einbauen
+
+    // Wochentag
+    const daySel=document.createElement('select');
+    daySel.innerHTML='<option value="">Wochentag wählen</option>'+
+      DAYS.map(d=>`<option value="${d}">${d}</option>`).join('');
+    daySel.value=training.day||'';
+
+    // Beschreibung
+    const what=document.createElement('input');
+    what.type='text';
+    what.placeholder='z.B. Kids 4–10 Jahre';
+    what.value=training.what||'';
+
+    // Zeiten
+    const timeWrap=document.createElement('div');
+    const start=document.createElement('input');
+    start.type='time';
+    start.value=training.start||'';
+
+    const end=document.createElement('input');
+    end.type='time';
+    end.value=training.end||'';
+
+    timeWrap.append('Beginn:',start,' Ende:',end);
+
+    // Trainer
+    const trainersWrap=document.createElement('div');
+    trainersWrap.className='trainers';
+
+    const trainerInputs=[];
+
+    const addTrainerBtn=document.createElement('button');
+    addTrainerBtn.className='btn ghost';
+    addTrainerBtn.textContent='➕ Trainer hinzufügen';
+    addTrainerBtn.type='button';
+
+    function addTrainerInput(value=''){
+      const inp=document.createElement('input');
+      inp.type='text';
+      inp.placeholder='Trainername';
+      inp.value=value;
+      trainersWrap.insertBefore(inp,addTrainerBtn);
+      trainerInputs.push(inp);
+    }
+
+    addTrainerBtn.onclick=()=>addTrainerInput();
+    trainersWrap.append(addTrainerBtn);
+
+    // vorhandene Trainer
+    (training.trainers||[]).forEach(name=>addTrainerInput(name));
+
+    // Buttons
+    const saveBtn=document.createElement('button');
+    saveBtn.className='btn';
+    saveBtn.textContent='💾 Speichern';
+    saveBtn.type='button';
+
+    const cancelBtn=document.createElement('button');
+    cancelBtn.className='btn ghost';
+    cancelBtn.textContent='Abbrechen';
+    cancelBtn.type='button';
+
+    cancelBtn.onclick=()=>renderTrainings();
+
+    saveBtn.onclick=async()=>{
+      const entry={
+        day: daySel.value,
+        what: what.value.trim(),
+        start: start.value,
+        end: end.value,
+        trainers: trainerInputs.map(i=>i.value.trim()).filter(Boolean)
+      };
+
+      if(!entry.day||!entry.what||!entry.start||!entry.end){
+        alert('Bitte alle Felder ausfüllen.');
+        return;
+      }
+
+      try{
+        await COL(STATE.school).doc(training.id).update(entry);
+        alert('Training aktualisiert!');
+        await loadTrainings(STATE.school);
+      }catch(e){
+        console.error(e);
+        alert('Fehler beim Speichern.');
+      }
+    };
+
+    card.append(
+      'Wochentag: ', daySel, document.createElement('br'),
+      what, document.createElement('br'),
+      timeWrap, trainersWrap,
+      document.createElement('br'),
+      saveBtn, ' ', cancelBtn
+    );
+  }
+
+  // ---------- Neues Training hinzufügen ----------
+  function addTrainingForm(){
+    const wrap=$('schedule');
+    const card=document.createElement('div');
+    card.className='card';
+
+    const daySel=document.createElement('select');
+    daySel.innerHTML='<option value="">Wochentag wählen</option>'+DAYS.map(d=>`<option value="${d}">${d}</option>`).join('');
+
+    const what=document.createElement('input');
+    what.type='text'; what.placeholder='z.B. Kids 4–10 Jahre'; what.style.display='none';
+
+    const timeWrap=document.createElement('div'); timeWrap.style.display='none';
+    const start=document.createElement('input'); start.type='time';
+    const end=document.createElement('input'); end.type='time';
+    timeWrap.append('Beginn:',start,' Ende:',end);
+
+    const trainersWrap=document.createElement('div'); trainersWrap.className='trainers'; trainersWrap.style.display='none';
+    const addTrainerBtn=document.createElement('button'); addTrainerBtn.className='btn ghost'; addTrainerBtn.textContent='➕ Trainer hinzufügen';
+    const trainers=[];
+
+    addTrainerBtn.onclick=()=>{
+      const inp=document.createElement('input');
+      inp.type='text'; inp.placeholder='Trainername';
+      trainersWrap.insertBefore(inp,addTrainerBtn);
+      trainers.push(inp);
+    };
+
+    trainersWrap.append(addTrainerBtn);
+
+    const saveBtn=document.createElement('button'); saveBtn.className='btn'; saveBtn.textContent='💾 Speichern'; saveBtn.style.display='none';
+
+    card.append('Wochentag: ',daySel, document.createElement('br'), what, timeWrap, trainersWrap, document.createElement('br'), saveBtn);
+    wrap.prepend(card);
+
+    daySel.onchange=()=>{ if(daySel.value){ what.style.display='block'; } };
+    what.oninput=()=>{ if(what.value.trim()){ timeWrap.style.display='block'; } };
+    end.onchange=()=>{ trainersWrap.style.display='block'; saveBtn.style.display='block'; };
+
+    saveBtn.onclick=async()=>{
+      // Maximalen bisherigen Order-Wert bestimmen
+      const maxOrder = STATE.trainings.reduce((m,t)=>{
+        const o = (typeof t.order === 'number') ? t.order : 0;
+        return o > m ? o : m;
+      }, 0);
+
+      const entry={
+        day: daySel.value,
+        what: what.value.trim(),
+        start: start.value,
+        end: end.value,
+        trainers: trainers.map(i=>i.value.trim()).filter(Boolean),
+        order: maxOrder + 1     // neuer Eintrag ans Ende
+      };
+      if(!entry.day||!entry.what||!entry.start||!entry.end){
+        alert("Bitte alle Felder ausfüllen.");
+        return;
+      }
+      try{
+        await COL(STATE.school).add(entry);
+        alert("Training gespeichert!");
+        await loadTrainings(STATE.school);
+      }catch(e){
+        console.error(e);
+        alert("Fehler beim Speichern.");
+      }
+    };
+  }
+
+  // ---------- Logos ----------
+  function preloadAndSet(imgEl, url){
+    const test = new Image();
+    test.onload = ()=>{ imgEl.src = url; };
+    test.onerror = ()=>{};
+    test.src = url;
+  }
+  function applyLogosForSchool(sch){
+    if(!sch || sch.toLowerCase()==='master') return;
+    const base = `logos/${sch.toLowerCase()}`;
+    preloadAndSet(document.getElementById('logo-left'), `${base}/logo-left.jpg`);
+    preloadAndSet(document.getElementById('logo-center'), `${base}/logo-center.jpg`);
+    preloadAndSet(document.getElementById('logo-right'), `${base}/logo-right.jpg`);
+  }
+
+  // ---------- Init: feste Schule aus der Hauptseite ----------
+  async function initFixedSchoolFlow(user){
+    // aktive Schule MUSS von der Hauptseite kommen
+    let active = (sessionStorage.getItem('activeSchool') || '').trim().toLowerCase();
+
+    // Fallback: ggf. alte Session-"school" verwenden
+    if(!active){
+      const fallback = (sessionStorage.getItem('school') || '').trim().toLowerCase();
+      if (fallback && fallback !== 'master') active = fallback;
+    }
+
+    // Kein aktiver Eintrag oder MASTER → Hinweis & optional Redirect
+    if(!active || active === 'master'){
+      $('schoolSelect').innerHTML = '<option value="">(keine Schule gewählt)</option>';
+      $('schoolSelect').disabled = true;
+      $('schedule').innerHTML = "<div class='hint'>Bitte zuerst auf der Hauptseite eine Schule auswählen.</div>";
+      // location.href = 'hauptseite.html'; // falls du direkt zurück leiten willst, Zeile aktivieren
+      return;
+    }
+
+    // Dropdown nur als Anzeige der fixen Schule
+    const sel = $('schoolSelect');
+    sel.innerHTML = '';
+    const opt = document.createElement('option');
+    opt.value = active;
+    opt.textContent = active.toUpperCase(); // Anzeige – passe bei Bedarf an
+    sel.appendChild(opt);
+    sel.value = active;
+    sel.disabled = true;
+
+    STATE.school = active;
+
+    // Logos + Daten
+    applyLogosForSchool(active);
+    await loadTrainings(active);
+
+    // Edit-Button freigeben, wenn Rolle darf
+    if (STATE.canEdit) $('addTrainingBtn').style.display = 'inline-block';
+  }
+
+  // ---------- Auth ----------
+  auth.onAuthStateChanged(async user=>{
+    if(!user){location.href='index.html';return;}
+    // Rolle lesen (nur für canEdit – Auswahl/Wechsel kommt NICHT mehr von hier)
+    try{
+      const r=await db.collection('rollen').doc(user.uid).get();
+      let role='user';
+      if(r.exists){
+        const d=r.data();
+        role = (d.role || 'user').toString().toLowerCase();
+      }
+      STATE.role = role;
+      STATE.canEdit = (role==='admin' || role==='si-fu' || role==='master');
+    }catch(e){
+      console.warn('Rolle konnte nicht geladen werden', e);
+      STATE.role = 'user'; STATE.canEdit = false;
+    }
+
+    // Starte festen Schul-Flow (nur aktive Schule aus Hauptseite)
+    await initFixedSchoolFlow(user);
+  });
+
+  $('addTrainingBtn').onclick=addTrainingForm;
+  </script>
+  <script src="branding-layout.js"></script>
+</body>
+</html>
