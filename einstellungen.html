@@ -81,15 +81,17 @@
     }
     .subcard-head{ display:flex; align-items:center; justify-content:space-between; }
     .copy-btn{ background:#222; color:#fff; border:1px solid var(--border); }
+
+    /* Funktionsverwaltung */
+    .function-grid{display:grid;grid-template-columns:85px minmax(120px,1fr) minmax(150px,1.3fr);gap:10px;align-items:center}
+    .function-grid>div{min-width:0}.function-grid input[type="text"]{width:100%;background:var(--bg);color:var(--text)}
+    .function-grid .function-head{font-weight:bold;border-bottom:1px solid var(--border);padding-bottom:8px}
+    .function-grid .function-row{padding:6px 0;border-bottom:1px solid var(--border)}
+    @media(max-width:620px){.function-grid{grid-template-columns:65px minmax(90px,1fr) minmax(110px,1.3fr);gap:5px;font-size:13px}}
   </style>
   <link rel="stylesheet" href="branding-layout.css">
 </head>
 <body>
-  <div class="header">
-    <img id="logo-left" src="branding/atc.png" alt="Logo links">
-    <img id="logo-center" src="branding/orgafunk.png" alt="Logo Mitte">
-    <img id="logo-right" src="branding/drakory.png" alt="Logo rechts">
-  </div>
 
   <div class="wrap">
     <h2>Einstellungen</h2>
@@ -97,38 +99,77 @@
 
     <div id="guardMsg" class="guard" style="display:none;">Du benötigst Admin-Rechte, um diese Seite zu sehen.</div>
     <div id="groupGuardMsg" class="guard" style="display:none;">
-      Du bist einer <strong>Einzelschule</strong> zugeordnet. Diese Seite ist nur für <strong>Gruppen</strong> (oder MASTER) verfügbar.
+      Du bist einer <strong>Einzelstandort</strong> zugeordnet. Diese Seite ist nur für <strong>Gruppen</strong> (oder MASTER) verfügbar.
     </div>
 
 
-    <div class="card" id="logoAdmin" style="display:none;">
-      <div class="card-head"><h3>Schuldesign – Header-Logos</h3></div>
-      <div class="collapsible-body" style="display:block;padding:16px;">
-        <p class="hint">Eigene Logos pro Schule hochladen. Ohne eigenes Bild bleibt das vorhandene GitHub-Logo aktiv.</p>
-        <div class="row"><label for="logoSchoolSelect">Schule:</label><select id="logoSchoolSelect"></select></div>
-        <div id="logoSlots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-top:16px;"></div>
-        <p id="logoStatus" class="hint" role="status"></p>
-      </div>
-    </div>
-    <!-- Schulverwaltung -->
-    <div class="card" id="schoolAdmin" style="display:none;">
-      <div class="card-head">
-        <h3>Schulverwaltung</h3>
-        <button id="toggleSchool" class="chev-btn" aria-controls="schoolAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev" aria-hidden="true">▼</span></button>
-      </div>
-      <div id="schoolAdminBody" class="collapsible-body" hidden>
+    <!-- MASTER: zentrale Gruppenauswahl für sämtliche Einstellungen -->
+    <div class="card" id="masterGroupPicker" style="display:none;">
+      <h3>MASTER – Gruppe auswählen</h3>
+      <p class="hint">Die Auswahl gilt für Header-Logos, Farbschema, Standortverwaltung, Links und Nutzer-Standortwechsel.</p>
         <div id="groupSwitchRow" class="row" style="display:none;">
           <label for="groupSwitch">Gruppe wählen:</label>
           <select id="groupSwitch" aria-label="Gruppe wählen"></select>
           <button id="reloadGroupsBtn" class="ghost" type="button" title="Neu laden">Neu laden</button>
         </div>
+      <p id="masterGroupStatus" class="hint" role="status"></p>
+    </div>
+
+    <div class="card" id="logoAdmin" style="display:none;">
+      <div class="card-head"><h3>Standortdesign – Header-Logos</h3></div>
+      <div class="collapsible-body" style="display:block;padding:16px;">
+        <p class="hint">Eigene Logos pro Standort hochladen. Ohne eigenes Bild bleibt das vorhandene GitHub-Logo aktiv.</p>
+        <div class="row"><label for="logoSchoolSelect">Standort:</label><select id="logoSchoolSelect"></select></div>
+        <div id="logoSlots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-top:16px;"></div>
+        <p id="logoStatus" class="hint" role="status"></p>
+      </div>
+    </div>
+    <!-- Standort-Farbschema -->
+    <div class="card" id="themeAdmin" style="display:none;">
+      <div class="card-head"><h3>Farbschema – Standort</h3>
+        <button id="toggleTheme" class="chev-btn" aria-controls="themeAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev">▼</span></button>
+      </div>
+      <div id="themeAdminBody" class="collapsible-body" hidden>
+        <p class="hint">Hintergrund- und Textfarbe für den gewählten Standort. Änderungen gelten für alle dort angemeldeten Nutzer.</p>
+        <div class="row"><label for="themeSchoolSelect">Standort:</label><select id="themeSchoolSelect"></select></div>
+        <div class="row" style="margin-top:12px"><label for="themeBg">Hintergrundfarbe:</label><input id="themeBg" type="color" value="#000000"></div>
+        <div class="row" style="margin-top:12px"><label for="themeText">Textfarbe:</label><input id="themeText" type="color" value="#ffffff"></div>
+        <div class="row" style="margin-top:12px"><button id="themeSave" type="button">Farbschema speichern</button><button id="themeReset" type="button" class="btn ghost">Standard wiederherstellen</button></div>
+        <p id="themeStatus" class="hint" role="status"></p>
+      </div>
+    </div>
+
+
+    <!-- Funktionsverwaltung: gruppenweite Standardwerte -->
+    <div class="card" id="functionsAdmin" style="display:none;">
+      <div class="card-head"><h3>Funktionsverwaltung</h3>
+        <button id="toggleFunctions" class="chev-btn" type="button" aria-controls="functionsAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev">▼</span></button>
+      </div>
+      <div id="functionsAdminBody" class="collapsible-body" hidden>
+        <p class="hint">Aktive Gruppe: <strong id="functionsGroupLabel">–</strong>. Hier legst du fest, welche Funktionen in der Gruppe angezeigt werden und wie sie heißen. Die zugrunde liegenden Seiten bleiben unverändert.</p>
+        <div id="functionsGrid" class="function-grid"></div>
+        <div class="row" style="margin-top:16px">
+          <button id="functionsSave" type="button">Einstellungen speichern</button>
+          <button id="functionsReset" type="button" class="btn ghost">Standard wiederherstellen</button>
+        </div>
+        <p id="functionsStatus" class="hint" role="status"></p>
+      </div>
+    </div>
+
+    <!-- Standortverwaltung -->
+    <div class="card" id="schoolAdmin" style="display:none;">
+      <div class="card-head">
+        <h3>Standortverwaltung</h3>
+        <button id="toggleSchool" class="chev-btn" aria-controls="schoolAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev" aria-hidden="true">▼</span></button>
+      </div>
+      <div id="schoolAdminBody" class="collapsible-body" hidden>
         <p class="hint">Aktive Gruppe: <span id="groupLabel">–</span></p>
         <div>
-          <strong>Schulen in der aktiven Gruppe</strong>
+          <strong>Standorte in der aktiven Gruppe</strong>
           <div id="schoolsList" class="list"></div>
         </div>
         <div class="section-row">
-          <input type="text" id="newSchoolInput" placeholder="Neue Schule hinzufügen (z. B. Degenhardt)" />
+          <input type="text" id="newSchoolInput" placeholder="Neuen Standort hinzufügen (z. B. Degenhardt)" />
           <button id="addSchoolBtn">Hinzufügen</button>
         </div>
         <p class="hint">Tipp: Namen eindeutig wählen. Groß-/Kleinschreibung wird normalisiert.</p>
@@ -146,7 +187,7 @@
           <input type="text" id="newGroupInput" placeholder="Neue Gruppe anlegen (z. B. NORD)" />
           <button id="addGroupBtn">Gruppe anlegen</button>
         </div>
-        <p class="hint">Erzeugt einen Eintrag in <code>Schulen/&lt;gruppe&gt;</code> mit leerer Liste.</p>
+        <p class="hint">Erzeugt einen Eintrag in <code>Schulen/MASTER/gruppen/&lt;gruppe&gt;</code> mit leerer Liste.</p>
       </div>
     </div>
 
@@ -158,7 +199,7 @@
       </div>
       <div id="linksAdminBody" class="collapsible-body" hidden>
         <div class="row" style="margin-bottom:6px;">
-          <label for="linksSchoolSelect">Schule wählen:</label>
+          <label for="linksSchoolSelect">Standort wählen:</label>
           <select id="linksSchoolSelect" aria-label="Schule wählen"></select>
           <button id="reloadLinksSchools" class="ghost" type="button" title="Neu laden">Neu laden</button>
         </div>
@@ -174,20 +215,20 @@
       </div>
     </div>
 
-    <!-- Trainer Schulwechsel (UID) -->
+    <!-- Nutzer-Standortwechsel (UID) -->
     <div class="card" id="trainerSwitch" style="display:none;">
       <div class="card-head">
-        <h3>Trainer Schulwechsel</h3>
+        <h3>Nutzer-Standortwechsel</h3>
         <button id="toggleTrainerSwitch" class="chev-btn" aria-controls="trainerSwitchBody" aria-expanded="false" title="Aufklappen"><span class="chev" aria-hidden="true">▼</span></button>
       </div>
       <div id="trainerSwitchBody" class="collapsible-body" hidden>
         <div class="row">
-          <label for="trainerUidInput">UID des Trainers:</label>
+          <label for="trainerUidInput">UID des Nutzers:</label>
           <input id="trainerUidInput" type="text" placeholder="z. B. a1b2c3d4e5..." style="min-width:280px" />
         </div>
         <div class="row" style="margin-top:8px;">
-          <label for="trainerSchoolSelect">Neue Schule:</label>
-          <select id="trainerSchoolSelect" aria-label="Neue Schule wählen"></select>
+          <label for="trainerSchoolSelect">Neuer Standort:</label>
+          <select id="trainerSchoolSelect" aria-label="Neuen Standort wählen"></select>
           <button id="reloadTrainerSchools" class="ghost" type="button" title="Neu laden">Neu laden</button>
         </div>
         <div class="row" style="margin-top:10px;">
@@ -255,32 +296,42 @@
       if(typeof d.schools==='string') return d.schools.split(/[,\n;]+/).map(s=>s.trim()).filter(Boolean);
       return [];
     }
+    const groupsRef = () => db.collection('Schulen').doc('MASTER').collection('gruppen');
+    async function findGroup(groupKey){
+      const key=sclean(groupKey);
+      if(!key || key.toUpperCase()==='MASTER') return null;
+      // Direkter Dokumentzugriff ist auch für Gruppenadmins erlaubt.
+      const direct=await groupsRef().doc(key).get();
+      if(direct.exists) return direct;
+      // Keine Listenabfrage für Gruppenadmins: die Regeln erlauben sie nur MASTER.
+      return null;
+    }
     async function loadGroupSchools(groupKey){
-      const tries=[groupKey, groupKey?.toUpperCase(), groupKey?.charAt(0)?.toUpperCase()+groupKey?.slice(1)?.toLowerCase(), groupKey?.toLowerCase()].filter(Boolean);
-      for(const k of tries){
-        const snap=await db.collection('Schulen').doc(k).get().catch(()=>null);
-        if(snap && snap.exists){
-          return { id:snap.id, schools: parseSchoolsData(snap.data()) };
-        }
-      }
-      return { id: groupKey, schools: [] };
+      const snap=await findGroup(groupKey);
+      if(snap) return {id:snap.id, schools:parseSchoolsData(snap.data())};
+      return {id:groupKey, schools:[]};
     }
     async function addSchoolToGroup(groupId, schoolName){
-      // LOWERCASE: Eingabe bereinigen + in Kleinbuchstaben speichern
-      const clean = sclean(schoolName).toLowerCase();
-      if(!clean) throw new Error('Kein Schulname angegeben.');
-      await db.collection('Schulen').doc(groupId)
-        .set({ School: firebase.firestore.FieldValue.arrayUnion(clean) }, { merge:true });
+      const clean=sclean(schoolName).toLowerCase();
+      if(!clean) throw new Error('Kein Standortname angegeben.');
+      const ref=groupsRef().doc(groupId);
+      await db.runTransaction(async tx=>{
+        const snap=await tx.get(ref);
+        if(!snap.exists) throw new Error('Gruppe nicht gefunden.');
+        const schools=parseSchoolsData(snap.data());
+        if(schools.some(s=>s.toLowerCase()===clean)) throw new Error('Standort bereits vorhanden.');
+        tx.update(ref,{School:[...schools,clean]});
+      });
     }
     async function createGroup(groupId){
-      const gid = sclean(groupId);
-      if(!gid) throw new Error('Kein Gruppenname angegeben.');
-      await db.collection('Schulen').doc(gid).set({ School: [] }, { merge:true });
+      const gid=sclean(groupId);
+      if(!gid || gid.toUpperCase()==='MASTER' || gid.includes('/')) throw new Error('Ungültiger Gruppenname.');
+      await groupsRef().doc(gid).set({School:[]});
       return gid;
     }
     function renderChips(container, items){
       container.innerHTML='';
-      if(!items || !items.length){ container.innerHTML = '<p class="hint">Noch keine Schulen hinterlegt.</p>'; return; }
+      if(!items || !items.length){ container.innerHTML = '<p class="hint">Noch keine Standorte hinterlegt.</p>'; return; }
       items.forEach(n=>{ const s=document.createElement('span'); s.className='pill'; s.textContent=n; container.appendChild(s); });
     }
     function populateGroupSwitcher(selectEl, groups, current){
@@ -288,7 +339,7 @@
       groups.forEach(id=>{ const opt=document.createElement('option'); opt.value=id; opt.textContent=id; if(id===current) opt.selected=true; selectEl.appendChild(opt); });
     }
     async function loadAllGroups(){
-      const qs = await db.collection('Schulen').get();
+      const qs = await groupsRef().get();
       return qs.docs.map(d=>d.id).sort((a,b)=>a.localeCompare(b,'de',{sensitivity:'base'}));
     }
     function setupToggle(btnId, bodyId){
@@ -315,7 +366,7 @@
     /* ===== LINKS: Standard-Template + Ensure ===== */
     const LINKS_TEMPLATE_KEYS = [
       'adminkalender','anleitungen','ausbilderunterlagen','bilder',
-      'drive','onenote','spiele','trainingsausrüstung',
+      'drive','onenote','spiele','videos1','videos2','trainingsausrüstung',
       'trainingskalender','videos','vorlagen'
     ];
     function buildLinksTemplate(){ const t={}; LINKS_TEMPLATE_KEYS.forEach(k=>t[k]=''); return t; }
@@ -359,9 +410,10 @@
       allKeys.forEach((key)=>{
         const val = (typeof linksOriginalData[key]==='undefined') ? '' : linksOriginalData[key];
         const row=document.createElement('div'); row.className='links-grid';
-        const nameEl=document.createElement('div'); nameEl.className='field-name'; nameEl.textContent=prettifyKey(key);
+        const nameEl=document.createElement('div'); nameEl.className='field-name'; const helpNames={ausbilderunterlagen:'Dokumentenablage',vorlagen:'Vorlagen',spiele:'Interaktive Inhalte',bilder:'Bilder',videos1:'Videos 1',videos2:'Videos 2',anleitungen:'Anleitungen'}; nameEl.textContent=helpNames[key]||prettifyKey(key);
+         if(Object.prototype.hasOwnProperty.call(helpNames,key)){ const help=document.createElement('a'); help.href='dokumente-hilfe.html?bereich='+encodeURIComponent(key); help.textContent=' ❔'; help.title='Anleitung für '+helpNames[key]; help.setAttribute('aria-label','Anleitung für '+helpNames[key]+' öffnen'); help.style.cssText='display:inline-block;margin-left:8px;color:var(--text);text-decoration:none;font-size:20px;'; nameEl.appendChild(help); }
         const valueWrap=document.createElement('div'); valueWrap.className='field-value';
-        if(typeof val==='string'){ const inp=document.createElement('input'); inp.type='text'; inp.value=val; inp.style.width='100%'; inp.dataset.key=key; inp.addEventListener('input',()=>setDirty(key,inp.value,inp)); valueWrap.appendChild(inp); }
+        if(typeof val==='string'){ const inp=document.createElement('input'); inp.type='text'; inp.value=val; inp.style.width='100%'; if(key==='ausbilderunterlagen')inp.placeholder='Google-Drive-Ordnerlink einfügen'; inp.dataset.key=key; inp.addEventListener('input',()=>setDirty(key,inp.value,inp)); valueWrap.appendChild(inp); }
         else { const ta=document.createElement('textarea'); ta.readOnly=true; ta.rows=2; ta.value=JSON.stringify(val,null,2); valueWrap.appendChild(ta); const note=document.createElement('p'); note.className='hint'; note.textContent='Nicht-String Feld (schreibgeschützt).'; valueWrap.appendChild(note); }
         row.appendChild(nameEl); row.appendChild(valueWrap); list.appendChild(row);
       });
@@ -404,7 +456,7 @@
       const sel=document.getElementById('linksSchoolSelect');
       sel.innerHTML='';
       if(!schools || !schools.length){
-        const o=document.createElement('option'); o.value=''; o.textContent='(keine Schulen in dieser Gruppe)'; sel.appendChild(o); sel.disabled=true;
+        const o=document.createElement('option'); o.value=''; o.textContent='(keine Standorte in dieser Gruppe)'; sel.appendChild(o); sel.disabled=true;
         document.getElementById('linksList').innerHTML=''; document.getElementById('linksEmptyHint').style.display='block'; return;
       }
       sel.disabled=false;
@@ -415,7 +467,7 @@
       sel.value=pickNorm; sessionStorage.setItem('linksSchool', pickNorm.toLowerCase());
       sel.onchange = async ()=>{
         if(Object.keys(linksDirtyPatch).length){
-          const ok=confirm('Es gibt ungespeicherte Änderungen. Verwerfen und Schule wechseln?');
+          const ok=confirm('Es gibt ungespeicherte Änderungen. Verwerfen und Standort wechseln?');
           if(!ok){ sel.value = previousLinksSchool || pickNorm; return; }
         }
         sessionStorage.setItem('linksSchool', sel.value.toLowerCase());
@@ -428,7 +480,7 @@
       sel.innerHTML='';
       const btn=document.getElementById('confirmTrainerSwitch');
       if(!schools || !schools.length){
-        const o=document.createElement('option'); o.value=''; o.textContent='(keine Schulen in dieser Gruppe)'; sel.appendChild(o); sel.disabled=true; if(btn) btn.disabled=true; return;
+        const o=document.createElement('option'); o.value=''; o.textContent='(keine Standorte in dieser Gruppe)'; sel.appendChild(o); sel.disabled=true; if(btn) btn.disabled=true; return;
       }
       sel.disabled=false; if(btn) btn.disabled=false;
       const uniq=[...new Set(schools.map(s=>String(s).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de',{sensitivity:'base'}));
@@ -441,7 +493,7 @@
     async function isGroupContext(baseSchool){
       if(!baseSchool) return false;
       if(String(baseSchool).toUpperCase()==='MASTER') return true;
-      const found = await getDocFlexible('Schulen', baseSchool);
+      const found = await findGroup(baseSchool);
       return !!found;
     }
 
@@ -514,7 +566,7 @@
             if(!data.startsWith('data:image/webp'))data=canvas.toDataURL('image/jpeg',0.75);
             if(data.length>700000)throw Error('Das Bild ist nach Optimierung zu groß. Bitte kleineres Bild wählen.');
             if(!logoAllowedSchools.includes(logoSchoolKey(school)))throw Error('Keine Berechtigung für diese Schule.');
-            await logoDoc(school,slot).set({image:data,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:auth.currentUser.uid});
+            await logoDoc(school,slot).set({image:data,school:logoSchoolKey(school),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:auth.currentUser.uid});
             window.invalidateSchoolLogos(school);img.src=data;logoStatus('Logo gespeichert.');
           }catch(e){logoStatus('Speichern fehlgeschlagen: '+e.message);}finally{input.disabled=false;reset.disabled=false;input.value='';}
         };
@@ -526,6 +578,119 @@
       }
       if(document.getElementById('logoStatus').textContent==='Lade Logos …')logoStatus('');
     }
+
+    /* ===== Standort-Farbschema ===== */
+    let themeAllowed = [];
+    function initThemeSelect(schools){
+      themeAllowed = [...new Set((schools||[]).map(s=>sclean(s).toLowerCase()).filter(Boolean))];
+      const sel=document.getElementById('themeSchoolSelect');
+      const previous=sel.value;sel.replaceChildren();
+      for(const id of themeAllowed)sel.add(new Option(id,id));
+      sel.value=themeAllowed.includes(previous)?previous:(themeAllowed[0]||'');
+      sel.disabled=!themeAllowed.length;
+      sel.onchange=loadTheme;
+      loadTheme();
+    }
+    async function loadTheme(){
+      const id=document.getElementById('themeSchoolSelect').value;
+      if(!id)return;
+      try{
+        const snap=await db.collection('standortdesign').doc(id).get();
+        const data=snap.exists?snap.data():{};
+        document.getElementById('themeBg').value=/^#[0-9a-fA-F]{6}$/.test(data.hintergrund||'')?data.hintergrund:'#000000';
+        document.getElementById('themeText').value=/^#[0-9a-fA-F]{6}$/.test(data.text||'')?data.text:'#ffffff';
+        document.getElementById('themeStatus').textContent='';
+      }catch(e){document.getElementById('themeStatus').textContent='Laden fehlgeschlagen: '+e.message;}
+    }
+    document.getElementById('themeSave').onclick=async()=>{
+      const id=document.getElementById('themeSchoolSelect').value;
+      if(!themeAllowed.includes(id))return;
+      try{
+        await db.collection('standortdesign').doc(id).set({
+          hintergrund:document.getElementById('themeBg').value,
+          text:document.getElementById('themeText').value
+        });
+        document.getElementById('themeStatus').textContent='Farbschema gespeichert.';
+        if(sessionStorage.getItem('activeSchool')?.toLowerCase()===id && window.orgafunkApplyTheme)window.orgafunkApplyTheme(id);
+      }catch(e){document.getElementById('themeStatus').textContent='Speichern fehlgeschlagen: '+e.message;}
+    };
+    document.getElementById('themeReset').onclick=async()=>{
+      const id=document.getElementById('themeSchoolSelect').value;
+      if(!themeAllowed.includes(id))return;
+      try{
+        await db.collection('standortdesign').doc(id).delete();
+        await loadTheme();
+        document.getElementById('themeStatus').textContent='Standard wiederhergestellt.';
+        if(sessionStorage.getItem('activeSchool')?.toLowerCase()===id && window.orgafunkApplyTheme)window.orgafunkApplyTheme(id);
+      }catch(e){document.getElementById('themeStatus').textContent='Zurücksetzen fehlgeschlagen: '+e.message;}
+    };
+
+
+    /* ===== Funktionsverwaltung: stabile IDs, nur sichtbare Bezeichnungen veränderbar ===== */
+    const FUNCTION_DEFINITIONS = [
+      ['probetraining','Terminübersicht'], ['protokoll','Berichte'],
+      ['ausbilderunterlagen','Dokumente'], ['vorlagen','Vorlagen'],
+      ['trainingsausruestung','Materialübersicht'], ['spiele','Interaktive Inhalte'],
+      ['bilder','Bilder'], ['tiger_videos','Videos 1'],
+      ['fighter_videos','Videos 2'], ['trainingszeiten','Zeitplan'],
+      ['schuluebersicht','Standortübersicht'], ['anleitungen','Anleitungen'],
+      ['checkliste','Checkliste'], ['snackliste','Mitbringliste']
+    ];
+    const FUNCTION_LEGACY_LABELS = {'probetraining':'Probetraining','protokoll':'Protokoll','ausbilderunterlagen':'Ausbilderunterlagen','trainingsausruestung':'Trainingsausrüstung','tiger_videos':'Tiger-Videos','fighter_videos':'Fighter-Videos','trainingszeiten':'Trainingszeiten','spiele':'Spiele','snackliste':'Snackliste'};
+    let functionsCurrentGroup = '';
+    const functionsStatus = message => document.getElementById('functionsStatus').textContent=message;
+    const functionsRef = group => db.collection('funktionsverwaltung').doc(group);
+    function renderFunctionsEditor(config={}){
+      const grid=document.getElementById('functionsGrid'); grid.replaceChildren();
+      ['Aktiv','Funktion','Anzeigename'].forEach(label=>{
+        const div=document.createElement('div');div.className='function-head';div.textContent=label;grid.appendChild(div);
+      });
+      for(const [key,defaultLabel] of FUNCTION_DEFINITIONS){
+        const saved=config[key]||{};
+        const checkWrap=document.createElement('div');checkWrap.className='function-row';
+        const check=document.createElement('input');check.type='checkbox';check.checked=saved.enabled!==false;check.dataset.functionId=key;check.dataset.field='enabled';check.setAttribute('aria-label',defaultLabel+' aktivieren');checkWrap.appendChild(check);
+        const label=document.createElement('div');label.className='function-row';label.textContent=defaultLabel;
+        const inputWrap=document.createElement('div');inputWrap.className='function-row';
+        const input=document.createElement('input');input.type='text';input.maxLength=60;input.value=typeof saved.label==='string' && saved.label!==FUNCTION_LEGACY_LABELS[key]?saved.label:defaultLabel;input.dataset.functionId=key;input.dataset.field='label';input.setAttribute('aria-label','Anzeigename für '+defaultLabel);inputWrap.appendChild(input);
+        grid.append(checkWrap,label,inputWrap);
+      }
+    }
+    async function loadFunctionsEditor(group){
+      functionsCurrentGroup=group;
+      document.getElementById('functionsGroupLabel').textContent=group;
+      functionsStatus('Lade Funktionen …');
+      try{
+        const snap=await functionsRef(group).get();
+        if(functionsCurrentGroup!==group)return;
+        renderFunctionsEditor(snap.exists?(snap.data().functions||{}):{});
+        functionsStatus('');
+      }catch(e){functionsStatus('Laden fehlgeschlagen: '+e.message);}
+    }
+    async function saveFunctionsEditor(){
+      const group=functionsCurrentGroup;
+      if(!group)return;
+      const config={};
+      for(const [key,defaultLabel] of FUNCTION_DEFINITIONS){
+        const enabled=document.querySelector('#functionsGrid [data-function-id="'+key+'"][data-field="enabled"]').checked;
+        const label=document.querySelector('#functionsGrid [data-function-id="'+key+'"][data-field="label"]').value.trim();
+        if(!label){functionsStatus('Bitte für „'+defaultLabel+'“ einen Namen eingeben.');return;}
+        config[key]={enabled,label};
+      }
+      functionsStatus('Speichere …');
+      try{
+        await functionsRef(group).set({functions:config,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),updatedBy:auth.currentUser.uid});
+        functionsStatus('Funktionen gespeichert. Die Hauptseite muss die Konfiguration ebenfalls einlesen.');
+      }catch(e){functionsStatus('Speichern fehlgeschlagen: '+e.message);}
+    }
+    async function resetFunctionsEditor(){
+      if(!functionsCurrentGroup||!confirm('Alle Funktionsnamen und Aktivierungen dieser Gruppe zurücksetzen?'))return;
+      try{
+        await functionsRef(functionsCurrentGroup).delete();
+        renderFunctionsEditor();functionsStatus('Standard wiederhergestellt.');
+      }catch(e){functionsStatus('Zurücksetzen fehlgeschlagen: '+e.message);}
+    }
+    document.getElementById('functionsSave').addEventListener('click',saveFunctionsEditor);
+    document.getElementById('functionsReset').addEventListener('click',resetFunctionsEditor);
 
     /* ===== Auth / Init ===== */
     auth.onAuthStateChanged(async user=>{
@@ -545,18 +710,24 @@
 
       logoRole=role; logoOwnSchool=baseGroupKeyExact;
       document.getElementById('logoAdmin').style.display='block';
+      document.getElementById('themeAdmin').style.display='block';
+      setupToggle('toggleTheme','themeAdminBody');
       const allowed = await isGroupContext(baseGroupKeyExact);
       if(!allowed){
         document.getElementById('groupGuardMsg').style.display='block';
-        ['schoolAdmin','groupAdmin','linksAdmin','trainerSwitch'].forEach(id=>{
+        ['schoolAdmin','groupAdmin','linksAdmin','trainerSwitch','functionsAdmin'].forEach(id=>{
           const el=document.getElementById(id); if(el) el.style.display='none';
         });
         updateLogoSchools([baseGroupKeyExact]);
+        initThemeSelect([baseGroupKeyExact]);
+        document.getElementById('themeAdmin').style.display='block';
         return;
       }
 
       // Karten sichtbar
-      document.getElementById('schoolAdmin').style.display='block';
+      document.getElementById('functionsAdmin').style.display='block';
+       setupToggle('toggleFunctions','functionsAdminBody');
+       document.getElementById('schoolAdmin').style.display='block';
       document.getElementById('linksAdmin').style.display='block';
       document.getElementById('trainerSwitch').style.display='block';
       setupToggle('toggleSchool','schoolAdminBody');
@@ -568,12 +739,14 @@
       const groupAdmin = document.getElementById('groupAdmin');
       if(isMaster){
         groupAdmin.style.display='block';
+        document.getElementById('masterGroupPicker').style.display='block';
         setupToggle('toggleGroup','groupAdminBody');
       } else {
         groupAdmin.style.display='none';
+        // Gruppenadministratoren dürfen Nutzer innerhalb ihrer eigenen Gruppe umziehen.
       }
 
-      let manageGroup = sessionStorage.getItem('manageGroupId') || baseGroupKeyExact;
+      let manageGroup = isMaster ? (sessionStorage.getItem('manageGroupId') || baseGroupKeyExact) : baseGroupKeyExact;
       const switchRow = document.getElementById('groupSwitchRow');
       const switchEl  = document.getElementById('groupSwitch');
       const reloadBtn = document.getElementById('reloadGroupsBtn');
@@ -585,6 +758,7 @@
 
       async function refreshSchools(){
         document.getElementById('groupLabel').textContent = manageGroup;
+         await loadFunctionsEditor(manageGroup);
         const { id:resolvedId, schools } = await loadGroupSchools(manageGroup);
         sessionStorage.setItem('resolvedManageGroupId', resolvedId);
         renderChips(document.getElementById('schoolsList'), schools);
@@ -595,6 +769,7 @@
         populateLinksSchoolSelect(schools, preferred);
         populateTrainerSchoolSelect(schools, preferred);
         updateLogoSchools(schools);
+        initThemeSelect(schools);
       }
 
       if(isMaster){
@@ -624,11 +799,11 @@
         await refreshSchools();
       }
 
-      // Schule zur Gruppe hinzufügen
+      // Standort zur Gruppe hinzufügen
       document.getElementById('addSchoolBtn').onclick = async ()=>{
         const inp = document.getElementById('newSchoolInput');
         const name = sclean(inp.value);
-        if(!name){ alert('Bitte einen Schulnamen eingeben.'); return; }
+        if(!name){ alert('Bitte einen Standortnamen eingeben.'); return; }
         try{
           const targetId = sessionStorage.getItem('resolvedManageGroupId') || manageGroup;
           await addSchoolToGroup(targetId, name);
@@ -651,6 +826,7 @@
             alert('Gruppe "'+gname+'" wurde angelegt.');
             inp.value='';
             const groups = await loadAllGroups();
+           document.getElementById('masterGroupStatus').textContent = groups.length ? 'Verfügbare Gruppen: ' + groups.join(', ') : 'Keine Gruppen gefunden.';
             populateGroupSwitcher(switchEl, groups, gname);
             manageGroup = gname;
             sessionStorage.setItem('manageGroupId', manageGroup);
@@ -667,13 +843,21 @@
         const uid = sclean(document.getElementById('trainerUidInput').value);
         const newSchool = sclean(document.getElementById('trainerSchoolSelect').value);
         if(!uid){ alert('Bitte eine UID eingeben.'); return; }
-        if(!newSchool){ alert('Bitte eine Schule wählen.'); return; }
+        if(!newSchool){ alert('Bitte einen Standort wählen.'); return; }
         try{
-          await db.collection('rollen').doc(uid).set({ school: newSchool }, { merge:true });
-          alert('Schule aktualisiert für UID: ' + uid);
+          if(uid===user.uid)throw Error('Der eigene Standort kann hier nicht geändert werden.');
+          const allowedTargets = (await loadGroupSchools(manageGroup)).schools.map(x=>sclean(x).toLowerCase());
+          if(!allowedTargets.includes(newSchool.toLowerCase()))throw Error('Standort gehört nicht zur verwalteten Gruppe.');
+          const targetRef=db.collection('rollen').doc(uid);
+          const target=await targetRef.get();
+          if(!target.exists)throw Error('Nutzerprofil nicht gefunden.');
+          const targetRole=String(target.data().role||'').toLowerCase();
+          if(!['nutzer','trainer'].includes(targetRole))throw Error('Nur Nutzer dürfen hier den Standort wechseln.');
+          await targetRef.update({ school: newSchool });
+          alert('Standort aktualisiert für UID: ' + uid);
         }catch(e){
           console.error(e);
-          alert('Schulwechsel fehlgeschlagen: ' + (e?.message || e));
+          alert('Standortwechsel fehlgeschlagen: ' + (e?.message || e));
         }
       };
 

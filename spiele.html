@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Spiele</title>
+  <title>Interaktive Inhalte</title>
   <style>
     :root { --bg:#000; --text:#fff; }
     * { box-sizing:border-box; }
@@ -62,11 +62,6 @@
 </head>
 <body>
   <!-- Header -->
-  <div class="header">
-    <img id="logo-left" src="branding/atc.png" alt="Logo links">
-    <img id="logo-center" src="branding/orgafunk.png" alt="Logo Mitte">
-    <img id="logo-right" src="branding/drakory.png" alt="Logo rechts">
-  </div>
 
   <!-- Weißer Karten-Viewer -->
   <div class="wrap">
@@ -87,94 +82,53 @@
   <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
 
   <script src="firebase-config.js"></script>
-<script src="schullogos.js"></script>
+
 
   <script>
-    if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
-    const auth = firebase.auth();
-    const db   = firebase.firestore();
-    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-
-    /* ---------------- Hilfsfunktionen ---------------- */
-
-    function preloadAndSet(imgEl, url){
-      const test = new Image();
-      test.onload = () => imgEl.src = url;
-      test.onerror = () => {};
-      test.src = url;
+if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+const auth=firebase.auth(), db=firebase.firestore();
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+async function resolveSchool(user){
+  let school=(sessionStorage.getItem('activeSchool')||sessionStorage.getItem('school')||'').trim().toLowerCase();
+  if(!school){ const role=await db.collection('rollen').doc(user.uid).get(); school=String(role.data()?.school||'').trim().toLowerCase(); }
+  return school||'master';
+}
+async function getLink(school){
+  const variants=[school,school.toUpperCase(),school.charAt(0).toUpperCase()+school.slice(1)];
+  for(const id of [...new Set(variants)]){
+    const snap=await db.collection('links').doc(id).get();
+    if(snap.exists){ const data=snap.data()||{}; const keys=['spiele', 'Spiele', 'spieleUrl', 'spieleURL', 'driveSpiele'];
+      for(const key of keys){ if(typeof data[key]==='string' && data[key].trim()) return data[key].trim(); }
     }
-
-    async function resolveSchool(user){
-      let school = (sessionStorage.getItem('activeSchool') || sessionStorage.getItem('school') || '')
-        .trim().toLowerCase();
-
-      if (!school){
-        const snap = await db.collection('rollen').doc(user.uid).get();
-        if (snap.exists){
-          school = (snap.data().school || '').toLowerCase();
-          sessionStorage.setItem('school', school);
-        }
-      }
-      return school || 'master';
-    }
-
-    function applyLogosForSchool(school){
-      if (school === 'master') return;
-
-      const base = `logos/${school}`;
-      preloadAndSet(document.getElementById('logo-center'), `${base}/logo-center.jpg`);
-      preloadAndSet(document.getElementById('logo-left'),   `${base}/logo-left.jpg`);
-      preloadAndSet(document.getElementById('logo-right'),  `${base}/logo-right.jpg`);
-    }
-
-    /* -------- Flexible Doc-Suche -------- */
-    async function getDocFlexible(col, key){
-      const tries = [
-        key,
-        key?.toUpperCase?.(),
-        key?.charAt(0)?.toUpperCase() + key?.slice(1)?.toLowerCase(),
-        key?.toLowerCase?.()
-      ].filter(Boolean);
-
-      for (const id of tries){
-        const snap = await db.collection(col).doc(id).get();
-        if (snap.exists) return snap;
-      }
-      return null;
-    }
-
-    /* -------- Spiele-URL laden -------- */
-    async function loadSpieleIframeForSchool(school){
-      const frame = document.getElementById('spieleFrame');
-      const hint  = document.getElementById('spieleHint');
-      hint.textContent = '';
-
-      let snap = await getDocFlexible('links', school);
-      if (!snap) snap = await getDocFlexible('links', 'master');
-
-      let url = null;
-      if (snap){
-        const d = snap.data() || {};
-        url = d.spiele || d.Spiele || d.spieleUrl || d.spieleURL || d.driveSpiele || null;
-      }
-
-      if (url){
-        frame.src = url;
-      } else {
-        frame.src = 'about:blank';
-        hint.textContent = 'Kein Spiele-Link gefunden.';
-      }
-    }
-
-    /* -------- Start -------- */
-    auth.onAuthStateChanged(async (user) => {
-      if (!user){ location.href = "index.html"; return; }
-
-      const school = await resolveSchool(user);
-      applyLogosForSchool(school);
-      loadSpieleIframeForSchool(school);
-    });
-  </script>
+  }
+  return '';
+}
+function embedUrl(value){
+  const url=new URL(value);
+  if(url.protocol!=='https:' || !['drive.google.com','docs.google.com'].includes(url.hostname)) throw Error('Bitte einen gültigen Google-Drive-Link eintragen.');
+  const match=url.pathname.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if(match) return 'https://drive.google.com/embeddedfolderview?id='+encodeURIComponent(match[1])+'#grid';
+  const file=url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(file) return 'https://drive.google.com/file/d/'+encodeURIComponent(file[1])+'/preview';
+  if(url.pathname==='/embeddedfolderview' && url.searchParams.get('id'))return value;
+  return value;
+}
+auth.onAuthStateChanged(async user=>{
+  if(!user){ location.href='index.html'; return; }
+  const frame=document.getElementById('spieleFrame');
+  try{
+    const school=await resolveSchool(user);
+    const link=await getLink(school);
+    if(!link){ location.href='dokumente-hilfe.html?bereich=spiele'; return; }
+    frame.src=embedUrl(link);
+  }catch(error){
+    console.error('[spiele]',error);
+    frame.style.display='none';
+    const msg=document.createElement('p');msg.textContent='Die Ablage konnte nicht geladen werden: '+error.message;
+    frame.parentElement.appendChild(msg);
+  }
+});
+</script>
   <script src="branding-layout.js"></script>
 </body>
 </html>

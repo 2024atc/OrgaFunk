@@ -18,7 +18,7 @@
       width:260px;background:var(--card);border-right:1px solid var(--border);
       padding:16px;display:flex;flex-direction:column;gap:8px;
       position:sticky;top:0;height:calc(100vh - 80px);overflow-y:auto;
-      transition:transform .3s ease;margin-top:56px;
+      transition:transform .3s ease;padding-top:72px;
     }
     nav.hidden{transform:translateX(-100%)}
     nav button, nav .submenu-toggle{
@@ -67,6 +67,52 @@
     .modal .btn.secondary{background:#222;color:#fff;border:1px solid #444}
   </style>
   <link rel="stylesheet" href="branding-layout.css">
+  <!-- Standortfarben: nur Hauptseite; Betreiber-Header und -Footer bleiben unverändert. -->
+  <style id="orgafunk-hauptseite-theme">
+    body.of-branded.of-themed #navMenu,
+    body.of-branded.of-themed .modal,
+    body.of-branded.of-themed .scope-dialog,
+    body.of-branded.of-themed .ticker,
+    body.of-branded.of-themed .pill {
+      background: var(--of-card) !important;
+      color: var(--of-text) !important;
+      border-color: var(--of-border) !important;
+    }
+    body.of-branded.of-themed #navMenu :is(button,.submenu-toggle,.settings-btn),
+    body.of-branded.of-themed #navMenu :is(button,.submenu-toggle,.settings-btn):not(.logout-btn) {
+      background: transparent !important;
+      color: var(--of-text) !important;
+      border-color: var(--of-border) !important;
+      box-shadow: none !important;
+    }
+    body.of-branded.of-themed #navMenu :is(button,.submenu-toggle,.settings-btn):not(.logout-btn):hover {
+      background: var(--of-field) !important;
+    }
+    body.of-branded.of-themed #navMenu .submenu button,
+    body.of-branded.of-themed #attendBtn span:last-child {color:var(--of-muted) !important;}
+    body.of-branded.of-themed #navMenu .logout-btn {
+      background: var(--red, #f44) !important;
+      color: #fff !important;
+    }
+    body.of-branded.of-themed :is(.ticker-inner,.modal p,.modal h3,.scope-dialog h3) {
+      color: var(--of-text) !important;
+    }
+    body.of-branded.of-themed .scope-dialog select,
+    body.of-branded.of-themed .scope-dialog select :is(option,optgroup) {
+      background: var(--of-field) !important;
+      color: var(--of-text) !important;
+      border-color: var(--of-border) !important;
+    }
+    body.of-branded.of-themed :is(.scope-dialog button.ghost,.modal .btn.secondary) {
+      background: var(--of-field) !important;
+      color: var(--of-text) !important;
+      border: 1px solid var(--of-border) !important;
+    }
+    body.of-branded.of-themed :is(.scope-dialog .btn,.modal .btn:not(.secondary)) {
+      background: var(--of-button) !important;
+      color: var(--of-button-text) !important;
+    }
+  </style>
 </head>
 <body>
 <header>
@@ -81,28 +127,28 @@
   <nav id="navMenu">
     <button id="profileBtn">👤 Mein Profil</button>
 
-    <button class="submenu-toggle" id="trainerToggle">📚 Trainer ▾</button>
+    <button class="submenu-toggle" id="trainerToggle">🧩 Funktionen ▾</button>
     <div class="submenu" id="trainerSub">
-      <button onclick="location.href='Probetraining.html'">📅 Probetraining</button>
-      <button onclick="location.href='protokollview.html'">📓 Protokoll</button>
-      <button onclick="location.href='ausbilderunterlagen.html'">📘 Ausbilderunterlagen</button>
-      <button id="templatesBtn">📂 Vorlagen</button>
-      <button onclick="location.href='links.html'">🧰 Trainingsausrüstung</button>
-      <button onclick="location.href='spiele.html'">🎲 Spiele</button>
-      <button onclick="location.href='bilder.html'">🖼️ Bilder</button>
-      <button onclick="location.href='Tiger.html'">🎥 Tiger-Videos</button>
-      <button onclick="location.href='fighter.html'">🎥 Fighter-Videos</button>
-      <button onclick="location.href='trainingszeiten.html'">🕒 Trainingszeiten</button>
+      <button data-function-id="probetraining" onclick="location.href='Probetraining.html'">📅 Probetraining</button>
+      <button data-function-id="protokoll" onclick="location.href='protokollview.html'">📓 Protokoll</button>
+      <button data-function-id="ausbilderunterlagen" onclick="location.href='ausbilderunterlagen.html'">📘 Ausbilderunterlagen</button>
+      <button data-function-id="vorlagen" id="templatesBtn">📂 Vorlagen</button>
+      <button data-function-id="trainingsausruestung" onclick="location.href='links.html'">🧰 Trainingsausrüstung</button>
+      <button data-function-id="spiele" onclick="location.href='spiele.html'">🎲 Spiele</button>
+      <button data-function-id="bilder" onclick="location.href='bilder.html'">🖼️ Bilder</button>
+      <button data-function-id="tiger_videos" onclick="location.href='Tiger.html'">🎥 Tiger-Videos</button>
+      <button data-function-id="fighter_videos" onclick="location.href='fighter.html'">🎥 Fighter-Videos</button>
+      <button data-function-id="trainingszeiten" onclick="location.href='trainingszeiten.html'">🕒 Trainingszeiten</button>
       <!-- Schulübersicht: ohne Inline-Handler, nur ID -->
-      <button id="schoolOverviewBtn">🏫 Schulübersicht</button>
-      <button onclick="location.href='anleitungen.html'">📖 Anleitungen</button>
+      <button data-function-id="schuluebersicht" id="schoolOverviewBtn">🏫 Schulübersicht</button>
+      <button data-function-id="anleitungen" onclick="location.href='anleitungen.html'">📖 Anleitungen</button>
       <!-- Checkliste: jetzt auch ohne Inline-Handler -->
-      <button id="checklistBtn">✅ Checkliste</button>
+      <button data-function-id="checkliste" id="checklistBtn">✅ Checkliste</button>
       <!-- Snackliste ohne Inline-Handler -->
-      <button id="snackListBtn">🍎 Snackliste</button>
+      <button data-function-id="snackliste" id="snackListBtn">🍎 Snackliste</button>
     </div>
 
-    <button class="submenu-toggle" id="adminToggle" style="display:none;">🛠️ Admin ▾</button>
+    <button class="submenu-toggle" id="adminToggle" style="display:none;">🛠️ Verwaltung ▾</button>
     <div class="submenu" id="adminSub">
       <button id="calendarBtn">📅 Kalender</button>
       <button onclick="location.href='adminprobetraining.html'">📅 Probetraining Anlegen</button>
@@ -251,6 +297,51 @@ async function setupCalendarForSchool(school){
   if(f&&w){if(iframe){f.src=iframe;w.style.display='block';}else{f.src='about:blank';w.style.display='none';}}
 }
 
+/* ---------- Gruppenweite Funktionsverwaltung ---------- */
+const OF_FUNCTION_DEFAULTS = {
+  probetraining:'Terminübersicht',protokoll:'Berichte',ausbilderunterlagen:'Dokumente',
+  vorlagen:'Vorlagen',trainingsausruestung:'Materialübersicht',spiele:'Interaktive Inhalte',
+  bilder:'Bilder',tiger_videos:'Videos 1',fighter_videos:'Videos 2',
+  trainingszeiten:'Zeitplan',schuluebersicht:'Standortübersicht',
+  anleitungen:'Anleitungen',checkliste:'Checkliste',snackliste:'Mitbringliste'
+};
+const OF_FUNCTION_LEGACY_LABELS = {probetraining:'Probetraining',protokoll:'Protokoll',ausbilderunterlagen:'Ausbilderunterlagen',trainingsausruestung:'Trainingsausrüstung',tiger_videos:'Tiger-Videos',fighter_videos:'Fighter-Videos',trainingszeiten:'Trainingszeiten',spiele:'Spiele',snackliste:'Snackliste'};
+const ofFunctionButtons=[...document.querySelectorAll('#trainerSub [data-function-id]')];
+for(const btn of ofFunctionButtons){
+  const key=btn.dataset.functionId;
+  const original=btn.textContent.trim();
+  btn.dataset.icon=(original.match(/^[^\p{L}\p{N}]+/u)||[''])[0];
+}
+function ofRenderFunctions(config={}){
+  for(const btn of ofFunctionButtons){
+    const key=btn.dataset.functionId;
+    const entry=config[key]||{};
+    btn.hidden=entry.enabled===false;
+    btn.style.display=entry.enabled===false?'none':'';
+    const label=typeof entry.label==='string'&&entry.label.trim()&&entry.label.trim()!==OF_FUNCTION_LEGACY_LABELS[key]?entry.label.trim():OF_FUNCTION_DEFAULTS[key];
+    btn.textContent=(btn.dataset.icon||'')+label;
+  }
+  const visible=ofFunctionButtons.some(btn=>!btn.hidden);
+  document.getElementById('trainerToggle').style.display=visible?'':'none';
+  if(!visible)document.getElementById('trainerSub').classList.remove('open');
+}
+let ofFunctionsRequest=0;
+async function ofLoadFunctions(group){
+  const request=++ofFunctionsRequest;
+  ofRenderFunctions();
+  if(!group||group.toUpperCase()==='MASTER')return;
+  try{
+    const snap=await db.collection('funktionsverwaltung').doc(group).get();
+    if(request!==ofFunctionsRequest)return;
+    ofRenderFunctions(snap.exists?(snap.data().functions||{}):{});
+  }catch(error){
+    console.warn('Funktionsverwaltung konnte nicht geladen werden:',error);
+  }
+}
+function ofGroupForLocation(groups,location){
+  return groups.find(g=>g.schools.some(s=>s.toLowerCase()===String(location||'').toLowerCase()))?.name||'';
+}
+
 /* ---------- Newsticker ---------- */
 let unsubscribeTicker=null;
 function renderTicker(data){
@@ -360,7 +451,7 @@ function showSchoolChooser(list, upper, baseSchool, active){
   };
   if(upper==='MASTER'){
     addOption(sel,'MASTER','MASTER (Verwaltung)');
-    // Gruppen sind Überschriften, ausgewählt wird die tatsächliche Schul-ID.
+    // Gruppen sind Überschriften, ausgewählt wird die tatsächliche Standort-ID.
     for(const group of list){
       const optgroup=document.createElement('optgroup');optgroup.label=group.name;
       for(const school of group.schools) addOption(optgroup,school,school);
@@ -371,7 +462,7 @@ function showSchoolChooser(list, upper, baseSchool, active){
   }
   const selected=[...sel.options].find(o=>o.value.toLowerCase()===String(active).toLowerCase());
   if(selected)sel.value=selected.value;
-  document.getElementById('scopeTitle').textContent=upper==='MASTER'?'Gruppe und Schule wählen':'Schule wählen';
+  document.getElementById('scopeTitle').textContent=upper==='MASTER'?'Gruppe und Standort wählen':'Standort wählen';
   dlg.style.display='flex';
 }
 
@@ -433,6 +524,7 @@ auth.onAuthStateChanged(async user=>{
   chooseLbl.textContent=(active.toUpperCase()==='MASTER'?'MASTER':active);
 
   await applyHeaderBySchool(active);
+  if (window.orgafunkApplyTheme) window.orgafunkApplyTheme(active);
   await setLink('oneNoteBtn',active,['onenote','OneNote','OneNoteURL']);
   await setLink('templatesBtn',active,['vorlagen']);
   await setLink('driveBtn',active,['drive']);
@@ -451,15 +543,40 @@ auth.onAuthStateChanged(async user=>{
     showChooser=true;
   }else{
     list=await loadAccessibleSchools(school);
-    const uniq=[...new Set(list.map(s=>String(s||'').toLowerCase()))];
-    showChooser=uniq.length>1;
+    list=[...new Map(list.map(s=>[String(s||'').trim().toLowerCase(),String(s||'').trim()]).filter(([k])=>k)).values()];
+    // Auch Gruppen mit nur einem Standort erhalten eine Standortauswahl.
+    // Einzeln zugeordnete Benutzer brauchen dagegen keinen Umschalter.
+    const isGroup=list.length!==1 || (list.length===1 && list[0].toLowerCase()!==school.toLowerCase());
+    showChooser=isGroup;
+    // Die Gruppen-ID selbst ist kein Standort. Ungültige/stale Auswahl ersetzen.
+    if(isGroup && !list.some(s=>s.toLowerCase()===active.toLowerCase()) && list.length){
+      active=list[0];
+      sessionStorage.setItem('activeSchool',active.toLowerCase());
+      chooseLbl.textContent=active;
+      await applyHeaderBySchool(active);
+      await setLink('oneNoteBtn',active,['onenote','OneNote','OneNoteURL']);
+      await setLink('templatesBtn',active,['vorlagen']);
+      await setLink('driveBtn',active,['drive']);
+      await setupCalendarForSchool(active);
+      startTickerListener(active);
+    }
   }
+  // Gruppenadmin: Gruppen-ID; MASTER: Gruppe des aktuell gewählten Standorts.
+  // Einzelstandort-Konten können optional ein Feld 'group' im Rollendokument besitzen.
+  let functionGroup = upper==='MASTER' ? ofGroupForLocation(list,active) : (showChooser?school:'');
+  if(!functionGroup && upper!=='MASTER'){
+    try{
+      const rd=await db.collection('rollen').doc(user.uid).get();
+      functionGroup=String(rd.data()?.group||rd.data()?.gruppe||'').trim();
+    }catch(e){console.warn('Gruppenzuordnung:',e);}
+  }
+  await ofLoadFunctions(functionGroup);
   chooseBtn.style.display=showChooser?'inline-block':'none';
 
   // Dialog öffnen (auch extern nutzbar)
   chooseBtn.onclick=()=>{ if(showChooser){ showSchoolChooser(list, upper, school, active); } };
 
-  // 🚦 Snackliste-Guard: erst öffnen, wenn konkrete Schule gewählt ist
+  // 🚦 Snackliste-Guard: erst öffnen, wenn konkreter Standort gewählt ist
   const snackBtn=document.getElementById('snackListBtn');
   snackBtn.onclick=()=>{
     const base=(sessionStorage.getItem('school')||school||'').trim();
@@ -470,7 +587,7 @@ auth.onAuthStateChanged(async user=>{
       chosen.toLowerCase()===base.toLowerCase() // noch auf Gruppen-/Basiswert
     );
     if(needChoice){
-      alert('Bitte zuerst eine Schule auswählen.');
+      alert('Bitte zuerst einen Standort auswählen.');
       showSchoolChooser(list, upper, base, chosen || ''); // Dialog anzeigen
       return;
     }
@@ -531,12 +648,17 @@ document.addEventListener('click',async e=>{
     sessionStorage.setItem('activeSchool',v.toLowerCase());
     document.getElementById('chooseSchoolLabel').textContent=(v.toUpperCase()==='MASTER'?'MASTER':v);
     await applyHeaderBySchool(v);
+    if (window.orgafunkApplyTheme) window.orgafunkApplyTheme(v);
     await setLink('oneNoteBtn',v,['onenote','OneNote','OneNoteURL']);
     await setLink('templatesBtn',v,['vorlagen']);
     await setLink('driveBtn',v,['drive']);
     await setupCalendarForSchool(v);
     document.getElementById('chooseSchoolDlg').style.display='none';
     startTickerListener(v);
+    if((sessionStorage.getItem('school')||'').toUpperCase()==='MASTER'){
+      try{await ofLoadFunctions(ofGroupForLocation(await loadMasterGroups(),v));}
+      catch(e){console.warn('Funktionsverwaltung nach Standortwechsel:',e);ofRenderFunctions();}
+    }
 
     // ✅ Plan-Button nach Schulwechsel aktualisieren
     const planBtn=document.getElementById('planBtn');
@@ -561,7 +683,7 @@ document.addEventListener('click',async e=>{
   <div class="scope-dialog" role="dialog" aria-modal="true" aria-labelledby="scopeTitle"
     style="width:92%;max-width:460px;background:#111;color:#fff;border:1px solid #333;border-radius:12px;
     box-shadow:0 10px 30px rgba(0,0,0,.6);padding:16px;">
-    <h3 id="scopeTitle" style="margin:0 0 10px;font-size:20px;">Schule wählen</h3>
+    <h3 id="scopeTitle" style="margin:0 0 10px;font-size:20px;">Standort wählen</h3>
     <select id="schoolSelect" style="width:100%;background:#000;color:#fff;border:1px solid #333;border-radius:10px;padding:10px 12px"></select>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
       <button id="dlgCancel" class="ghost">Abbrechen</button>
@@ -570,5 +692,43 @@ document.addEventListener('click',async e=>{
   </div>
 </div>
   <script src="branding-layout.js"></script>
+  <script>
+    // Farbschema nach Laden des gemeinsamen Layoutskripts initial anwenden.
+    if (window.orgafunkApplyTheme) window.orgafunkApplyTheme(sessionStorage.getItem('activeSchool'));
+  </script>
+  <script>
+  /* Nur Hauptseite: vorhandenes Farbschema auch auf Navigation, Karten und Dialoge anwenden. */
+  (() => {
+    const root = document.documentElement;
+    let previous = '';
+    function syncTheme() {
+      const bodyStyle = getComputedStyle(document.body);
+      const bg = bodyStyle.backgroundColor;
+      const fg = bodyStyle.color;
+      const validBg = bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)' ? bg : '#000000';
+      const signature = validBg + '|' + fg;
+      if (signature === previous) return;
+      previous = signature;
+      root.style.setProperty('--of-page-bg', validBg);
+      root.style.setProperty('--of-foreground', fg);
+      root.style.setProperty('--of-surface', `color-mix(in srgb, ${validBg} 94%, ${fg} 6%)`);
+      root.style.setProperty('--of-field', `color-mix(in srgb, ${validBg} 97%, ${fg} 3%)`);
+      root.style.setProperty('--of-hover', `color-mix(in srgb, ${validBg} 88%, ${fg} 12%)`);
+      root.style.setProperty('--of-outline', `color-mix(in srgb, ${validBg} 77%, ${fg} 23%)`);
+    }
+    syncTheme();
+    /* Standortfarben werden asynchron aus Firestore geladen. */
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'class'] });
+    observer.observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
+    document.addEventListener('click', event => {
+      if (event.target.closest('#dlgApply')) {
+        setTimeout(syncTheme, 150);
+        setTimeout(syncTheme, 900);
+      }
+    });
+    setInterval(syncTheme, 1500);
+  })();
+  </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Ausbilderunterlagen</title>
+  <title>Dokumente | OrgaFunk</title>
   <style>
     :root { --bg:#000; --text:#fff; --accent-bg:#fff; --accent-text:#000; }
     * { box-sizing:border-box; }
@@ -44,16 +44,9 @@
   <link rel="stylesheet" href="branding-layout.css">
 </head>
 <body>
-  <!-- Header / Logos (Standard-Assets für MASTER) -->
-  <div class="header" id="header">
-    <img id="logo-left" src="branding/atc.png" alt="Logo links">
-    <img id="logo-center" src="branding/orgafunk.png" alt="Logo Mitte">
-    <img id="logo-right" src="branding/drakory.png" alt="Logo rechts">
-  </div>
-
   <!-- Webviewer: URL kommt aus Firestore -->
   <div class="viewer">
-    <iframe id="unterlagenFrame" src="about:blank" title="Ausbilderunterlagen" allowfullscreen></iframe>
+    <iframe id="unterlagenFrame" src="about:blank" title="Dokumente" allowfullscreen></iframe>
   </div>
 
   <!-- Home-Button -->
@@ -77,14 +70,6 @@
     const db   = firebase.firestore();
     auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
 
-    // ---- Hilfsfunktionen ----
-    function preloadAndSet(imgEl, url){
-      const test = new Image();
-      test.onload = () => { imgEl.src = url; };
-      test.onerror = () => {}; 
-      test.src = url;
-    }
-
     async function resolveSchool(user){
       let school = (sessionStorage.getItem('activeSchool') || sessionStorage.getItem('school') || '').trim().toLowerCase();
       if (!school) {
@@ -97,18 +82,6 @@
         } catch (e) { console.error('[resolveSchool]', e); }
       }
       return school || 'master';
-    }
-
-    function applyLogosForSchool(school){
-      const logoLeft   = document.getElementById('logo-left');
-      const logoCenter = document.getElementById('logo-center');
-      const logoRight  = document.getElementById('logo-right');
-      if (school !== 'master') {
-        const base = `logos/${school}`;
-        preloadAndSet(logoCenter, `${base}/logo-center.jpg`);
-        preloadAndSet(logoLeft,   `${base}/logo-left.jpg`);
-        preloadAndSet(logoRight,  `${base}/logo-right.jpg`);
-      }
     }
 
     async function getDocFlexible(col, key){
@@ -144,18 +117,22 @@
           d.trainerunterlagen ||
           d.docsUrl ||
           d.docsURL ||
+          d.drive ||
           null;
       }
 
-      if (url){
-        frame.src = url;
+      if (typeof url === 'string' && /^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(url.trim())){
+        // Google Drive Ordner lassen sich über die eingebettete Ordneransicht anzeigen.
+        const match = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+        frame.src = match ? 'https://drive.google.com/embeddedfolderview?id=' + encodeURIComponent(match[1]) + '#list' : url;
+      } else if (!url || !String(url).trim()) {
+        location.href = 'dokumente-hilfe.html';
       } else {
         frame.src = 'about:blank';
-        alert(
-          'Kein Link gefunden. Bitte in Firestore unter "links/' +
-          schoolKey.toLowerCase() +
-          '" ein Feld "ausbilderunterlagen" (String-URL) anlegen.'
-        );
+        const viewer = document.querySelector('.viewer');
+        const note = document.createElement('p');
+        note.textContent = 'Der hinterlegte Dokumentenlink ist kein unterstützter Google-Drive-Link. Bitte in den Einstellungen prüfen.';
+        viewer.replaceChildren(note);
       }
     }
 
@@ -163,11 +140,10 @@
       if (!user) { location.href = "index.html"; return; }
       try {
         const school = await resolveSchool(user);
-        applyLogosForSchool(school);
         await loadUnterlagenIframeForSchool(school);
       } catch(e){
         console.error('[Unterlagen/Init]', e);
-        alert('Fehler beim Laden der Ausbilderunterlagen.');
+        document.querySelector('.viewer').textContent='Dokumente konnten nicht geladen werden. Bitte Verbindung und Zugriffsrechte prüfen.';
       }
     });
   </script>

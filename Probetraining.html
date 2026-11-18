@@ -3,13 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Probetrainings</title>
+<title>Terminübersicht | OrgaFunk</title>
 <style>
 :root{--bg:#000;--text:#fff}
 *{box-sizing:border-box}
 body{margin:0;background:#000;color:#fff;font-family:Arial,sans-serif}
-.header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px}
-.header img{height:80px}
 .wrap{padding:14px}
 .week{margin-bottom:20px;background:#181818;border:1px solid #444;border-radius:10px;overflow:hidden}
 .week-title{background:#252525;padding:10px 14px;font-weight:bold;font-size:20px}
@@ -22,16 +20,20 @@ body{margin:0;background:#000;color:#fff;font-family:Arial,sans-serif}
 .free{text-align:center;color:#666;padding-top:18px}
 .home-btn{position:fixed;left:18px;bottom:18px;border:none;background:#fff;border-radius:50%;padding:10px;cursor:pointer}
 .home-btn img{width:32px;height:32px}
+/* Standort-Farbschema: Flächen übernehmen die eingestellte Text-/Hintergrundfarbe. */
+body.of-branded .week{background:color-mix(in srgb,currentColor 7%,transparent);border-color:color-mix(in srgb,currentColor 28%,transparent)}
+body.of-branded .week-title{background:color-mix(in srgb,currentColor 10%,transparent)}
+body.of-branded .day{border-color:color-mix(in srgb,currentColor 20%,transparent)}
+body.of-branded .dayhead{background:color-mix(in srgb,currentColor 8%,transparent);border-color:color-mix(in srgb,currentColor 20%,transparent)}
+body.of-branded .slot{border-color:color-mix(in srgb,currentColor 30%,transparent)}
+body.of-branded .time{background:color-mix(in srgb,currentColor 15%,transparent)}
+body.of-branded .slot .content{background:color-mix(in srgb,currentColor 4%,transparent)}
+body.of-branded .free{color:inherit;opacity:.65}
+@media(max-width:850px){.days{grid-template-columns:repeat(5,minmax(160px,1fr));overflow-x:auto}.week{overflow-x:auto}}
 </style>
   <link rel="stylesheet" href="branding-layout.css">
 </head>
 <body>
-<div class="header">
-<img id="logo-left" src="branding/atc.png">
-<img id="logo-center" src="branding/orgafunk.png">
-<img id="logo-right" src="branding/drakory.png">
-</div>
-
 <div class="wrap"><div id="calendar"></div></div>
 
 <button class="home-btn" onclick="location.href='hauptseite.html'"><img src="home.jpg"></button>
@@ -47,8 +49,6 @@ if(!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
 const auth=firebase.auth();
 const db=firebase.firestore();
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-
-function preloadAndSet(el,url){const i=new Image();i.onload=()=>el.src=url;i.src=url;}
 
 const labels=["Vergangene Woche","Aktuelle Woche","Nächste Woche","Übernächste Woche"];
 const dayNames=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag"];
@@ -175,12 +175,9 @@ auth.onAuthStateChanged(async user=>{
    if(s.exists){base=(s.data().school||"").toLowerCase();sessionStorage.setItem("school",base);}
  }
  const school=active||base||"master";
- if(school!=="master"){
-   const b=`logos/${school}`;
-   preloadAndSet(document.getElementById("logo-left"),`${b}/logo-left.jpg`);
-   preloadAndSet(document.getElementById("logo-center"),`${b}/logo-center.jpg`);
-   preloadAndSet(document.getElementById("logo-right"),`${b}/logo-right.jpg`);
- }
+ // Betreiberlogos werden ausschließlich vom zentralen Branding-Layout erzeugt.
+ // Das Standort-Farbschema wird nach dem Login mit der aktiven Standort-ID geladen.
+ if(window.orgafunkApplyTheme) await window.orgafunkApplyTheme(school);
  buildCalendar();
  await loadProbetrainings(school);
 });

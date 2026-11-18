@@ -1,0 +1,446 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function hasProfile() {
+      return isAuthed() && exists(/databases/$(database)/documents/rollen/$(request.auth.uid));
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/rollen/$(request.auth.uid)).data;
+    }
+
+    // MASTER ist eine besondere Kombination aus Rolle und Zuordnung.
+    function isMasterGroup() {
+      return hasProfile()
+        && profile().role == 'admin'
+        && profile().school == 'MASTER';
+    }
+
+    function isPrivileged() {
+      return hasProfile() && profile().role in ['admin', 'si-fu', 'Admin', 'Si-Fu'];
+    }
+
+    function userGroup() {
+      return hasProfile() ? profile().school : '';
+    }
+
+    function eqIgnoreCase(a, b) {
+      return a == b || (a is string && b is string && a.lower() == b.lower());
+    }
+
+    // Eine Gruppe liegt jetzt unter Schulen/MASTER/gruppen/{gruppenId}.
+    function groupSchools(groupId) {
+      let path = /databases/$(database)/documents/Schulen/MASTER/gruppen/$(groupId);
+      let d = exists(path) ? get(path).data : {};
+      let v = d.get('School', []);
+      return v is list ? v : (v is string ? [v] : []);
+    }
+
+    function canAccessSchool(schoolId) {
+      return isMasterGroup()
+        || (hasProfile() && eqIgnoreCase(schoolId, userGroup()))
+        || (hasProfile() && groupSchools(userGroup()).hasAny([schoolId]));
+    }
+
+    // Angemeldete E-Mail (Case-sensitiv aus dem Token)
+    function userEmail() {
+      return (request.auth != null && request.auth.token.email != null)
+        ? request.auth.token.email
+        : "";
+    }
+
+    // -------- Payload-Validierung Schulen --------
+    function hasOnlyAllowedFields(allowed) {
+      return request.resource.data.keys().hasOnly(allowed);
+    }
+
+    function isValidSchoolsCreate() {
+      return hasOnlyAllowedFields(['School'])
+             && (request.resource.data.School is list);
+    }
+
+    function isValidSchoolsUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly(['School'])
+             && (request.resource.data.School is list);
+    }
+
+    // ===========================
+    // LINKS
+    // ===========================
+    match /links/{schoolId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isPrivileged();
+    }
+
+    // ===========================
+    // SCHULEN
+    // ===========================
+    match /Schulen/{groupId} {
+      allow read: if isAuthed();
+
+      allow create: if isPrivileged()
+                    && isMasterGroup()
+                    && groupId != 'MASTER'
+                     && isValidSchoolsCreate();
+
+      allow update: if isPrivileged()
+                    && isMasterGroup()
+                    && groupId != 'MASTER'
+                     && isValidSchoolsUpdate();
+
+      allow delete: if isMasterGroup() && groupId != 'MASTER';
+
+      match /gruppen/{gruppenId} {
+        // Einfache Gruppenübersicht für angemeldete Benutzer;
+        // Details anderer Gruppen werden nicht für unberechtigte Nutzer freigegeben.
+        allow get: if isMasterGroup() || (hasProfile() && userGroup() == gruppenId);
+        allow list: if isMasterGroup();
+        // Neue Gruppen und beliebige Gruppenänderungen nur durch MASTER.
+        allow create: if isMasterGroup()
+          && request.resource.data.keys().hasOnly(['School'])
+          && (request.resource.data.School is string || request.resource.data.School is list);
+
+        // MASTER darf Gruppen bearbeiten; Gruppenadmins dürfen in ihrer
+        // eigenen Gruppe ausschließlich weitere Standorte ergänzen.
+        allow update: if (
+          isMasterGroup()
+          && request.resource.data.keys().hasOnly(['School'])
+          && (request.resource.data.School is string || request.resource.data.School is list)
+        ) || (
+          isPrivileged()
+          && userGroup() == gruppenId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['School'])
+          && request.resource.data.School is list
+          && resource.data.get('School', []) is list
+          && request.resource.data.School.hasAll(resource.data.get('School', []))
+          && request.resource.data.School.size() > resource.data.get('School', []).size()
+        ) || (
+          isPrivileged()
+          && userGroup() == gruppenId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['School'])
+          && request.resource.data.School is list
+          && resource.data.get('School', '') is string
+          && request.resource.data.School.hasAll([resource.data.get('School', '')])
+          && request.resource.data.School.size() > 1
+        );
+        allow delete: if isMasterGroup();
+      }
+    }
+
+    // ===========================
+    // ROLLEN
+    // ===========================
+    // Rollenanlage: MASTER oder Administrator der eigenen Gruppe/des Standorts.
+    // Eine Registrierung darf weder MASTER zuweisen noch fremde Gruppen erreichen.
+    function allowedNewRole() {
+      return request.resource.data.role in ['admin', 'si-fu', 'trainer', 'nutzer'];
+    }
+
+    function canAssignUserTo(target) {
+      return isMasterGroup()
+        || (isPrivileged() && userGroup() != 'MASTER' && (
+             eqIgnoreCase(target, userGroup())
+             || groupSchools(userGroup()).hasAny([target])
+           ));
+    }
+
+    match /rollen/{userId} {
+      allow read: if isAuthed() && (request.auth.uid == userId || isMasterGroup()
+        || (isPrivileged() && userGroup() != 'MASTER'
+          && resource.data.role in ['nutzer', 'trainer']
+          && (eqIgnoreCase(resource.data.school, userGroup())
+              || groupSchools(userGroup()).hasAny([resource.data.school]))));
+
+      allow create: if isPrivileged()
+        && request.auth.uid != userId
+        && request.resource.data.keys().hasOnly(['role', 'school', 'anzeigename'])
+        && allowedNewRole()
+        && request.resource.data.school is string
+        && request.resource.data.school != 'MASTER'
+        && canAssignUserTo(request.resource.data.school);
+
+      allow update: if isMasterGroup() && resource.data.school != 'MASTER'
+        && request.resource.data.school != 'MASTER';
+
+      // Gruppenadmin: nur Standortwechsel normaler Nutzer innerhalb der eigenen Gruppe.
+      // Standortadmins erhalten keinen Standortwechsel.
+      allow update: if isPrivileged() && !isMasterGroup()
+        && request.auth.uid != userId
+        && exists(/databases/$(database)/documents/Schulen/MASTER/gruppen/$(userGroup()))
+        && resource.data.role in ['nutzer', 'trainer']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['school'])
+        && (eqIgnoreCase(resource.data.school, userGroup())
+            || groupSchools(userGroup()).hasAny([resource.data.school]))
+        && groupSchools(userGroup()).hasAny([request.resource.data.school]);
+
+      allow update: if isAuthed() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anzeigename'])
+        && request.resource.data.get('anzeigename', '') is string;
+
+      allow delete: if isMasterGroup() && resource.data.school != 'MASTER';
+    }
+
+    // ===========================
+    // TRAININGSZEITEN
+    // ===========================
+    match /trainingszeiten/{schoolId} {
+      match /trainingszeiten/{docId} {
+        allow read: if true;
+        allow write: if isAuthed() && isPrivileged() && canAccessSchool(schoolId);
+        allow create, update: if isAuthed()
+          && isPrivileged()
+          && canAccessSchool(schoolId)
+          && (
+               (docId == 'schema'   && hasOnlyAllowedFields(['slots'])) ||
+               (docId == 'belegung')
+             );
+      }
+    }
+
+    // ===========================
+    // SNACKLISTE
+    // ===========================
+    match /snacks/{schoolId} {
+      match /items/{dateId} {
+        allow read: if isAuthed() && canAccessSchool(schoolId);
+        allow create: if isAuthed()
+                      && canAccessSchool(schoolId)
+                      && !exists(/databases/$(database)/documents/snacks/$(schoolId)/items/$(dateId))
+                      && !('assigneeUid' in request.resource.data)
+                      && ('date' in request.resource.data || 'dateId' in request.resource.data);
+        allow update: if isAuthed() && canAccessSchool(schoolId) && (
+                        (
+                          (resource.data.assigneeUid == null || !( 'assigneeUid' in resource.data ))
+                          && request.resource.data.assigneeUid == request.auth.uid
+                        )
+                        ||
+                        (
+                          resource.data.assigneeUid == request.auth.uid
+                          && request.resource.data.assigneeUid == resource.data.assigneeUid
+                        )
+                        ||
+                        (
+                          resource.data.assigneeUid == request.auth.uid
+                          && ( !( 'assigneeUid' in request.resource.data ) || request.resource.data.assigneeUid == null )
+                        )
+                        ||
+                        ( isPrivileged() )
+                      );
+        allow delete: if isPrivileged() && canAccessSchool(schoolId);
+      }
+    }
+
+    // ===========================
+    // SESSIONS + CHECKINS
+    // ===========================
+    match /sessions/{sid} {
+      allow read: if isAuthed();
+      allow create: if isPrivileged()
+                    && hasOnlyAllowedFields(['createdBy','createdAt','date','topic','school','open','qrNonce']);
+      allow update: if isPrivileged()
+                    && request.resource.data.diff(resource.data).changedKeys().hasOnly(['topic','date','school','open','qrNonce']);
+      allow delete: if isPrivileged();
+      match /checkins/{uid} {
+        allow read: if isPrivileged() || (isAuthed() && request.auth.uid == uid);
+        allow create: if isAuthed()
+                      && request.auth.uid == uid
+                      && get(/databases/$(database)/documents/sessions/$(sid)).data.open == true
+                      && (
+                           ('nonce' in request.resource.data)
+                           && request.resource.data.nonce
+                              == get(/databases/$(database)/documents/sessions/$(sid)).data.qrNonce
+                         )
+                      && !exists(/databases/$(database)/documents/sessions/$(sid)/checkins/$(uid))
+                      && hasOnlyAllowedFields(['uid','email','displayName','checkedAt','userAgent','nonce']);
+        allow update, delete: if isPrivileged();
+      }
+    }
+
+    // ===========================
+    // NEWSTICKER
+    // ===========================
+    match /ticker/{schoolId} {
+      allow read: if isAuthed();
+      allow create, update: if isPrivileged()
+                            && canAccessSchool(schoolId)
+                            && hasOnlyAllowedFields(['text','active','speed','updatedAt'])
+                            && (
+                                 (!('text' in request.resource.data) || request.resource.data.text is string)
+                                 && (!('active' in request.resource.data) || request.resource.data.active is bool)
+                                 && (!('speed' in request.resource.data) ||
+                                     (request.resource.data.speed is number
+                                      && request.resource.data.speed >= 6
+                                      && request.resource.data.speed <= 60))
+                                 && (!('updatedAt' in request.resource.data) ||
+                                     request.resource.data.updatedAt is timestamp)
+                               );
+      allow delete: if isPrivileged() && canAccessSchool(schoolId);
+    }
+
+    // ===========================
+    // PROTOKOLLE (Inhalte + Acks)
+    // ===========================
+    match /protocols/{schoolId} {
+
+      // Inhalte der Protokolle
+      match /dates/{dateId} {
+        function protocolAllowedKeys() {
+          return ['school','dateKey','sessionId','topicFromDb','topics','todos','attendance','updatedAt','createdAt','seedFrom'];
+        }
+
+        allow get:  if isAuthed() && canAccessSchool(schoolId);
+        // Queries/Liste gezielt erlauben (für jüngstes Protokoll)
+        allow list: if isAuthed() && canAccessSchool(schoolId);
+
+        allow create: if isPrivileged()
+                      && canAccessSchool(schoolId)
+                      && (!('school' in request.resource.data) || eqIgnoreCase(request.resource.data.school, schoolId))
+                      && hasOnlyAllowedFields(protocolAllowedKeys());
+
+        allow update: if isPrivileged()
+                      && canAccessSchool(schoolId)
+                      && (!('school' in request.resource.data) || eqIgnoreCase(request.resource.data.school, schoolId))
+                      && request.resource.data.keys().hasOnly(protocolAllowedKeys());
+
+        allow delete: if isPrivileged() && canAccessSchool(schoolId);
+      }
+
+      // Gelesen-Häkchen – jeder Nutzer darf nur sein eigenes Ack lesen/schreiben
+      match /read/{dateId} {
+        match /byEmail/{email} {
+          allow get: if isAuthed() && canAccessSchool(schoolId) && email == userEmail();
+
+          allow create, update: if isAuthed()
+                                && canAccessSchool(schoolId)
+                                && email == userEmail()
+                                && request.resource.data.keys().hasOnly(['read','school','dateKey','email','setAt','expiresAt'])
+                                && (!('read' in request.resource.data) || request.resource.data.read is bool)
+                                && (!('email' in request.resource.data) || request.resource.data.email == userEmail())
+                                && (!('dateKey' in request.resource.data) || request.resource.data.dateKey == dateId)
+                                && (!('school' in request.resource.data) || eqIgnoreCase(request.resource.data.school, schoolId))
+                                && (!('setAt' in request.resource.data) || request.resource.data.setAt is timestamp)
+                                && (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp);
+
+          allow delete: if isAuthed() && canAccessSchool(schoolId) && email == userEmail();
+        }
+      }
+    }
+
+    // ===========================
+    // LEGACY-ACKS
+    // ===========================
+    match /users/{uid}/protocolAcks/{docId} {
+      allow read, create, update, delete: if isAuthed() && request.auth.uid == uid;
+    }
+
+    // ===========================
+    // STANDORTDESIGN (Farbschema)
+    // ===========================
+    match /standortdesign/{standortId} {
+      allow read: if isAuthed() && canAccessSchool(standortId);
+      allow create, update: if isPrivileged() && canAccessSchool(standortId)
+        && request.resource.data.keys().hasOnly(['hintergrund', 'text'])
+        && request.resource.data.hintergrund is string
+        && request.resource.data.text is string
+        && request.resource.data.hintergrund.matches('^#[0-9a-fA-F]{6}$')
+        && request.resource.data.text.matches('^#[0-9a-fA-F]{6}$');
+      allow delete: if isPrivileged() && canAccessSchool(standortId);
+    }
+
+    // ===========================
+    // SCHULLOGOS (Firestore-Bilder)
+    // ===========================
+    // Dokument-IDs: <schule>_left, <schule>_center, <schule>_right
+    match /schullogos/{logoId} {
+      allow read: if isAuthed();
+      // Standort-ID wird beim Speichern mitgeschrieben und mit der Dokument-ID abgeglichen.
+      // Gruppenadmins dürfen nur Logos von Standorten ihrer Gruppe bearbeiten.
+      allow create, update: if isPrivileged()
+        && request.resource.data.keys().hasOnly(['image', 'updatedAt', 'updatedBy', 'school'])
+        && request.resource.data.school is string
+        && request.resource.data.school.matches('^[a-z0-9_-]+$')
+        && logoId.matches('^' + request.resource.data.school + '_(left|center|right)$')
+        && canAccessSchool(request.resource.data.school)
+        && request.resource.data.image is string
+        && request.resource.data.image.size() <= 700000
+        && request.resource.data.image.matches('^data:image/(webp|jpeg|png);base64,.*')
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+      // Alte Logo-Dokumente ohne school-Feld kann weiterhin MASTER löschen.
+      allow delete: if isPrivileged()
+        && (isMasterGroup() || (
+          resource.data.get('school', '') is string
+          && resource.data.get('school', '').matches('^[a-z0-9_-]+$')
+          && logoId.matches('^' + resource.data.school + '_(left|center|right)$')
+          && canAccessSchool(resource.data.school)
+        ));
+    }
+
+    // ===========================
+    // PROBETRAININGS (in der App verwendete Collection)
+    // ===========================
+    match /probetrainings/{entryId} {
+      allow read: if isAuthed();
+      allow create: if isPrivileged()
+        && request.resource.data.keys().hasOnly(['school','date','slot','participants','created'])
+        && request.resource.data.school is string
+        && canAccessSchool(request.resource.data.school);
+      allow update: if isPrivileged()
+        && canAccessSchool(resource.data.school)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']);
+      allow delete: if isPrivileged() && canAccessSchool(resource.data.school);
+    }
+
+    // ===========================
+    // FUNKTIONSVERWALTUNG (gruppenweite Menuekonfiguration)
+    // ===========================
+    match /funktionsverwaltung/{gruppenId} {
+      // Standortnutzer lesen die Einstellungen ihrer zugehoerigen Gruppe.
+      // Keine globale Auflistung der Konfigurationen.
+      allow get: if isMasterGroup()
+        || (hasProfile() && (
+          eqIgnoreCase(userGroup(), gruppenId)
+          || groupSchools(gruppenId).hasAny([userGroup()])
+        ));
+      allow list: if false;
+
+      // Nur MASTER oder ein Admin, dessen Zuordnung exakt die Gruppe ist.
+      // Ein Standortadmin darf die gruppenweiten Einstellungen nicht aendern.
+      function mayManageFunctions() {
+        return isMasterGroup() || (isPrivileged()
+          && eqIgnoreCase(userGroup(), gruppenId)
+          && exists(/databases/$(database)/documents/Schulen/MASTER/gruppen/$(gruppenId)));
+      }
+
+      function validFunctionsPayload() {
+        return request.resource.data.keys().hasOnly(['functions', 'updatedAt', 'updatedBy'])
+          && request.resource.data.keys().hasAll(['functions', 'updatedAt', 'updatedBy'])
+          && request.resource.data.functions is map
+          && request.resource.data.functions.keys().hasOnly([
+            'probetraining', 'protokoll', 'ausbilderunterlagen', 'vorlagen',
+            'trainingsausruestung', 'spiele', 'bilder', 'tiger_videos',
+            'fighter_videos', 'trainingszeiten', 'schuluebersicht',
+            'anleitungen', 'checkliste', 'snackliste'
+          ])
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      allow create, update: if mayManageFunctions() && validFunctionsPayload();
+      allow delete: if mayManageFunctions();
+    }
+
+    // ===========================
+    // CATCH-ALL
+    // ===========================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

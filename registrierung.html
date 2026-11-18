@@ -69,26 +69,26 @@
         <select id="role" class="select">
           <option value="Admin">Admin</option>
           <option value="Si-Fu">Si-Fu</option>
-          <option value="Trainer" selected>Trainer</option>
+          <option value="nutzer" selected>Nutzer</option>
         </select>
       </div>
 
-      <!-- Nur für MASTER sichtbar -->
+      <!-- Gruppenwahl für MASTER, feste Gruppe für Gruppenadmins -->
       <div class="row" id="groupRow" style="display:none;">
         <label for="group">Gruppe</label>
         <select id="group" class="select">
           <option disabled selected>Lade Gruppen…</option>
         </select>
       </div>
-      <div class="hint" id="groupHint" style="display:none;">Gruppen aus der OrgaFunk-Verwaltung.</div>
+      <div class="hint" id="groupHint" style="display:none;">MASTER kann Nutzer für jede Gruppe und jeden Standort registrieren.</div>
 
       <div class="row" id="schoolRow">
-        <label for="school">Schule / Gruppe</label>
+        <label for="school">Standort / Gruppe</label>
         <select id="school" class="select">
-          <option disabled selected>Lade verfügbare Schulen…</option>
+          <option disabled selected>Lade verfügbare Standorte…</option>
         </select>
       </div>
-      <div class="hint" id="schoolHint">Wähle eine Schule oder die gesamte Gruppe.</div>
+      <div class="hint" id="schoolHint">Wähle einen Standort oder die gesamte Gruppe.</div>
 
       <div class="row" style="justify-content:flex-end">
         <button id="registerBtn" class="btn">Registrieren</button>
@@ -133,7 +133,7 @@
       role = (role||"").toLowerCase();
       if (role === "si-fu") return "Si-Fu";
       if (role === "admin") return "Admin";
-      if (role === "trainer") return "Trainer";
+      if (role === "trainer" || role === "nutzer") return "Nutzer";
       return role.charAt(0).toUpperCase() + role.slice(1);
     }
 
@@ -155,7 +155,7 @@
       }).sort((a,b) => a.id.localeCompare(b.id, 'de', {sensitivity:'base'}));
     }
 
-    let ctx = { isMaster:false, groups:[], ready:false };
+    let ctx = { isMaster:false, isAdmin:false, isGroupAdmin:false, groups:[], ownSchool:'', ready:false };
 
     function fillSchools(groupId){
       const schoolSel = $('#school');
@@ -167,12 +167,12 @@
         return;
       }
       // Gruppenzuordnung ist möglich, aber MASTER wird nie als Ziel angeboten.
-      schoolSel.add(new Option(`${group.id} (Gruppe)`, group.id));
+      if (ctx.isMaster || ctx.isGroupAdmin) schoolSel.add(new Option(`${group.id} (Gruppe)`, group.id));
       for(const school of group.schools) schoolSel.add(new Option(school, school));
       schoolSel.disabled = false;
       // Wenn Schulen vorhanden sind, standardmäßig die erste Schule wählen.
       schoolSel.value = group.schools[0] || group.id;
-      $('#schoolHint').textContent = 'Wähle eine Schule oder die gesamte Gruppe als Zuordnung.';
+      $('#schoolHint').textContent = 'Wähle einen Standort oder die gesamte Gruppe als Zuordnung.';
     }
 
     async function populateSelectors(){
@@ -182,7 +182,20 @@
       schoolSel.replaceChildren();
       $('#groupRow').style.display = '';
       $('#groupHint').style.display = '';
-      ctx.groups = await loadAllGroups();
+      if (ctx.isMaster) {
+        ctx.groups = await loadAllGroups();
+      } else if (ctx.isGroupAdmin) {
+        // Firestore erlaubt dem Gruppenadmin GET seiner Gruppe, aber kein LIST aller Gruppen.
+        const doc = await db.collection('Schulen').doc('MASTER').collection('gruppen').doc(ctx.ownSchool).get();
+        if (!doc.exists) throw new Error('Eigene Gruppe nicht gefunden.');
+        const raw = (doc.data() || {}).School;
+        const schools = (Array.isArray(raw) ? raw : (typeof raw === 'string' ? [raw] : []))
+          .map(x => String(x).trim()).filter(Boolean);
+        ctx.groups = [{id:doc.id, schools:[...new Set(schools)]}];
+      } else {
+        // Standortadmins können nur ihrem eigenen Standort Benutzer zuweisen.
+        ctx.groups = [{id:ctx.ownSchool, schools:[ctx.ownSchool]}];
+      }
       if(!ctx.groups.length){
         groupSel.add(new Option('Keine Gruppen vorhanden', ''));
         groupSel.disabled = true;
@@ -191,7 +204,7 @@
         return;
       }
       for(const group of ctx.groups) groupSel.add(new Option(group.id, group.id));
-      groupSel.disabled = false;
+      groupSel.disabled = !ctx.isMaster;
       const previous = sessionStorage.getItem('regChosenGroup');
       groupSel.value = ctx.groups.some(g => g.id === previous) ? previous : ctx.groups[0].id;
       fillSchools(groupSel.value);
@@ -201,7 +214,7 @@
       };
       ctx.ready = true;
       $('#registerBtn').disabled = false;
-      $('#groupHint').textContent = 'Gruppen aus der OrgaFunk-Verwaltung.';
+      $('#groupHint').textContent = ctx.isMaster ? 'Alle Gruppen aus der OrgaFunk-Verwaltung.' : 'Du kannst nur Benutzer für deine eigene Zuordnung anlegen.';
     }
 
     /* ---------- Seite initialisieren ---------- */
@@ -213,13 +226,24 @@
         const snap = await db.collection('rollen').doc(user.uid).get();
         const data = snap.exists ? snap.data() : {};
         ctx.isMaster = normalize(data.role) === 'admin' && data.school === 'MASTER';
-        if(!ctx.isMaster){
-          $('#groupRow').style.display = 'none';
-          $('#groupHint').style.display = 'none';
-          $('#school').disabled = true;
-          setMsg('Die Registrierung neuer Benutzer ist derzeit nur für das MASTER-Konto freigegeben.');
-          return;
-        }
+         ctx.isAdmin = ['admin', 'si-fu'].includes(normalize(data.role));
+         ctx.ownSchool = String(data.school || '');
+         if(!ctx.isAdmin || !ctx.ownSchool){
+           setMsg('Nur Administratoren dürfen Benutzer registrieren.');
+           return;
+         }
+         if(!ctx.isMaster){
+           // Eine Gruppenkennung ist genau dann eine Gruppe, wenn das
+           // entsprechende Dokument existiert und gelesen werden darf.
+           try {
+             const groupDoc = await db.collection('Schulen').doc('MASTER')
+               .collection('gruppen').doc(ctx.ownSchool).get();
+             ctx.isGroupAdmin = groupDoc.exists;
+           } catch (err) {
+             if(err.code !== 'permission-denied') throw err;
+             ctx.isGroupAdmin = false; // Standortadmin: nur eigener Standort
+           }
+         }
         await populateSelectors();
       }catch(err){
         console.error('Registrierung initialisieren:', err);
@@ -236,13 +260,13 @@
 
       if (!email || !pass) { setMsg("Bitte E-Mail und Passwort eingeben."); return; }
 
-      if(!ctx.isMaster || !ctx.ready){
+      if(!ctx.isAdmin || !ctx.ready){
         setMsg('Keine Berechtigung zur Registrierung.'); return;
       }
       const selectedGroup = ctx.groups.find(g => g.id === $('#group').value);
       if(!selectedGroup || !new Set([selectedGroup.id, ...selectedGroup.schools]).has(chosen)
-         || chosen === 'MASTER'){
-        setMsg('Bitte eine gültige Gruppe oder Schule auswählen.'); return;
+         || chosen === 'MASTER' || (!ctx.isMaster && !ctx.isGroupAdmin && chosen !== ctx.ownSchool)){
+        setMsg('Bitte eine gültige Gruppe oder einen Standort auswählen.'); return;
       }
 
       const btn = $("#registerBtn");
@@ -261,7 +285,7 @@
         const cred = await secAuth.createUserWithEmailAndPassword(email, pass);
         const newUid = cred.user.uid;
 
-        // 2) Rollen-Dokument setzen: school = gewählte Gruppe ODER Schule
+        // 2) Rollen-Dokument setzen: school = gewählte Gruppe ODER Standort
         await db.collection("rollen").doc(newUid).set({ role, school: chosen });
 
         // 3) Erfolg
@@ -272,7 +296,7 @@
         // 5) Formular resetten
         $("#email").value = "";
         $("#pass").value = "";
-        $("#role").value = "Trainer";
+        $("#role").value = "nutzer";
 
       } catch (err) {
         console.error(err);
@@ -283,7 +307,7 @@
         else if (String(err).includes("Permission"))  human = "Keine Berechtigung (Regeln prüfen).";
         setMsg("❌ " + human);
       } finally {
-        if (secondaryApp) { secondaryApp.delete().catch(()=>{}); }
+        if (secondaryApp) { await secondaryApp.delete().catch(()=>{}); }
         btn.disabled = false;
       }
     });

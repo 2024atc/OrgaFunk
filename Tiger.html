@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Tiger</title>
+  <title>Videos 1</title>
   <style>
     :root{ --bg:#000; --text:#fff; }
     *{ box-sizing:border-box; }
@@ -47,14 +47,9 @@
 </head>
 <body>
   <!-- Header mit Logos (Standardbilder als Fallback/Master) -->
-  <div class="header" id="header">
-    <img id="logo-left" src="branding/atc.png" alt="Logo links">
-    <img id="logo-center" src="branding/orgafunk.png" alt="Logo Mitte">
-    <img id="logo-right" src="branding/drakory.png" alt="Logo rechts">
-  </div>
 
   <div class="wrap">
-    <h1 id="title">Tiger</h1>
+    <h1 id="title">Videos 1</h1>
     <iframe id="videosFrame" class="frame" title="Videos"></iframe>
     <div id="msg" class="note"></div>
   </div>
@@ -71,107 +66,53 @@
 
   <!-- zentrale Firebase-Config -->
   <script src="firebase-config.js"></script>
-<script src="schullogos.js"></script>
+
 
   <script>
-    // --- Firebase init ---
-    if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
-    const auth = firebase.auth();
-    const db   = firebase.firestore();
-    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-
-    const frame = document.getElementById('videosFrame');
-    const title = document.getElementById('title');
-    const msgEl = document.getElementById('msg');
-
-    // ------- Header/Logos (stabil, kein MASTER-Text-Umschalten) -------
-    function preloadAndSet(imgEl, url){
-      const test = new Image();
-      test.onload  = () => { imgEl.src = url; };
-      test.onerror = () => {}; // Fallback: ursprüngliches src bleibt
-      test.src = url;
+if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+const auth=firebase.auth(), db=firebase.firestore();
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+async function resolveSchool(user){
+  let school=(sessionStorage.getItem('activeSchool')||sessionStorage.getItem('school')||'').trim().toLowerCase();
+  if(!school){ const role=await db.collection('rollen').doc(user.uid).get(); school=String(role.data()?.school||'').trim().toLowerCase(); }
+  return school||'master';
+}
+async function getLink(school){
+  const variants=[school,school.toUpperCase(),school.charAt(0).toUpperCase()+school.slice(1)];
+  for(const id of [...new Set(variants)]){
+    const snap=await db.collection('links').doc(id).get();
+    if(snap.exists){ const data=snap.data()||{}; const keys=['videos1', 'videos'];
+      for(const key of keys){ if(typeof data[key]==='string' && data[key].trim()) return data[key].trim(); }
     }
-    async function resolveSchool(user){
-      // activeSchool hat Vorrang, dann school; sonst Firestore; dann 'master'
-      let school = (sessionStorage.getItem('activeSchool') || sessionStorage.getItem('school') || '').trim().toLowerCase();
-      if (!school) {
-        try {
-          const snap = await db.collection('rollen').doc(user.uid).get();
-          if (snap.exists) {
-            school = (snap.data().school || '').toString().trim().toLowerCase();
-            if (school) sessionStorage.setItem('school', school);
-          }
-        } catch(e){ console.error('[resolveSchool]', e); }
-      }
-      return school || 'master';
-    }
-    function applyLogosForSchool(school){
-      if (school === 'master') return; // Standardbilder beibehalten
-      const base = `logos/${school}`;
-      preloadAndSet(document.getElementById('logo-center'), `${base}/logo-center.jpg`);
-      preloadAndSet(document.getElementById('logo-left'),   `${base}/logo-left.jpg`);
-      preloadAndSet(document.getElementById('logo-right'),  `${base}/logo-right.jpg`);
-    }
-
-    // ------- Videos-Logik -------
-    function variantsForDocId(base){
-      if (!base) return [];
-      const b = String(base).trim();
-      const cap = b.charAt(0).toUpperCase()+b.slice(1);
-      return [b, b.toUpperCase(), b.toLowerCase(), cap];
-    }
-    function toEmbedUrl(url){
-      if (!url) return '';
-      if (url.includes('embeddedfolderview')) return url;
-      const folderMatch = url.match(/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([a-zA-Z0-9_-]+)/);
-      if (folderMatch) return `https://drive.google.com/embeddedfolderview?id=${folderMatch[1]}#grid`;
-      const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-      if (fileMatch) return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
-      return url;
-    }
-    async function loadLinkForSchool(kind, school){
-      const tries = [...new Set(variantsForDocId(school))];
-      for (const id of tries){
-        try{
-          const snap = await db.collection('links').doc(id).get();
-          if (snap.exists){
-            const data = snap.data() || {};
-            if (data && data[kind]) return { url: data[kind], docId: id };
-          }
-        }catch(e){ console.warn('read links/', id, e); }
-      }
-      return null;
-    }
-
-    // ------- Start -------
-    auth.onAuthStateChanged(async user=>{
-      if (!user){ location.replace('index.html'); return; }
-
-      const school = await resolveSchool(user);
-      applyLogosForSchool(school);
-
-      const active = (sessionStorage.getItem('activeSchool') || sessionStorage.getItem('school') || 'MASTER').trim();
-      title.textContent = `Videos – ${active.toUpperCase()}`;
-
-      if (active.toUpperCase() === 'MASTER'){
-        frame.style.display = 'none';
-        msgEl.innerHTML = '<span>Bitte zuerst auf der Hauptseite eine Schule auswählen.</span>';
-        return;
-      }
-
-      const res = await loadLinkForSchool('videos', active);
-      if (!res || !res.url){
-        frame.style.display = 'none';
-        msgEl.innerHTML = `<span class="err">Kein Video-Link für <b>${active}</b> gefunden.</span><br>
-                           Lege in <code>links/${active}</code> das Feld <code>videos</code> an.`;
-        return;
-      }
-
-      frame.style.display = 'block';
-      frame.src = toEmbedUrl(res.url);
-      msgEl.textContent = `Quelle: links/${res.docId} (Feld "videos")`;
-    });
-  </script>
+  }
+  return '';
+}
+function embedUrl(value){
+  const url=new URL(value);
+  if(url.protocol!=='https:' || !['drive.google.com','docs.google.com'].includes(url.hostname)) throw Error('Bitte einen gültigen Google-Drive-Link eintragen.');
+  const match=url.pathname.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if(match) return 'https://drive.google.com/embeddedfolderview?id='+encodeURIComponent(match[1])+'#grid';
+  const file=url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(file) return 'https://drive.google.com/file/d/'+encodeURIComponent(file[1])+'/preview';
+  if(url.pathname==='/embeddedfolderview' && url.searchParams.get('id'))return value;
+  return value;
+}
+auth.onAuthStateChanged(async user=>{
+  if(!user){ location.href='index.html'; return; }
+  const frame=document.getElementById('videosFrame');
+  try{
+    const school=await resolveSchool(user);
+    const link=await getLink(school);
+    if(!link){ location.href='dokumente-hilfe.html?bereich=videos1'; return; }
+    frame.src=embedUrl(link);
+  }catch(error){
+    console.error('['+key+']',error);
+    frame.style.display='none';
+    const msg=document.createElement('p');msg.textContent='Die Ablage konnte nicht geladen werden: '+error.message;
+    frame.parentElement.appendChild(msg);
+  }
+});
+</script>
   <script src="branding-layout.js"></script>
 </body>
 </html>

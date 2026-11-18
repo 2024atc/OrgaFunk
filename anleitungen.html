@@ -46,11 +46,6 @@
 </head>
 <body>
   <!-- Header / Logos (Standardbilder = MASTER) -->
-  <div class="header" id="header">
-    <img id="logo-left" src="branding/atc.png" alt="Logo links">
-    <img id="logo-center" src="branding/orgafunk.png" alt="Logo Mitte">
-    <img id="logo-right" src="branding/drakory.png" alt="Logo rechts">
-  </div>
 
   <div class="wrap">
     <!-- Weißer Card-Viewer mit eingebettetem Google-Drive-Ordner -->
@@ -76,117 +71,53 @@
 
   <!-- Zentrale Firebase-Config -->
   <script src="firebase-config.js"></script>
-<script src="schullogos.js"></script>
+
 
   <script>
-    // ---- Firebase init (nur einmal) ----
-    if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
-    const auth = firebase.auth();
-    const db   = firebase.firestore();
-    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-
-    // ---- Logos/School (stabil, kein Umschalten zu MASTER-Text) ----
-    function preloadAndSet(imgEl, url){
-      const test = new Image();
-      test.onload = () => { imgEl.src = url; };
-      test.onerror = () => {}; // Fallback: ursprüngliches src bleibt
-      test.src = url;
+if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+const auth=firebase.auth(), db=firebase.firestore();
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+async function resolveSchool(user){
+  let school=(sessionStorage.getItem('activeSchool')||sessionStorage.getItem('school')||'').trim().toLowerCase();
+  if(!school){ const role=await db.collection('rollen').doc(user.uid).get(); school=String(role.data()?.school||'').trim().toLowerCase(); }
+  return school||'master';
+}
+async function getLink(school){
+  const variants=[school,school.toUpperCase(),school.charAt(0).toUpperCase()+school.slice(1)];
+  for(const id of [...new Set(variants)]){
+    const snap=await db.collection('links').doc(id).get();
+    if(snap.exists){ const data=snap.data()||{}; const keys=['anleitungen', 'Anleitungen', 'anleitung', 'Anleitung', 'anleitungenUrl', 'anleitungenURL'];
+      for(const key of keys){ if(typeof data[key]==='string' && data[key].trim()) return data[key].trim(); }
     }
-
-    async function resolveSchool(user){
-      let school = (sessionStorage.getItem('activeSchool') || sessionStorage.getItem('school') || '').trim().toLowerCase();
-      if (!school) {
-        try {
-          const snap = await db.collection('rollen').doc(user.uid).get();
-          if (snap.exists) {
-            school = (snap.data().school || '').toString().trim().toLowerCase();
-            if (school) sessionStorage.setItem('school', school);
-          }
-        } catch (e) { console.error('[resolveSchool]', e); }
-      }
-      return school || 'master';
-    }
-
-    function applyLogosForSchool(school){
-      if (school === 'master') return; // Standardbilder behalten
-      const base = `logos/${school}`;
-      preloadAndSet(document.getElementById('logo-center'), `${base}/logo-center.jpg`);
-      preloadAndSet(document.getElementById('logo-left'),   `${base}/logo-left.jpg`);
-      preloadAndSet(document.getElementById('logo-right'),  `${base}/logo-right.jpg`);
-    }
-
-    // ---- Flexible Doc-Suche in "links" ----
-    async function getDocFlexible(col, key){
-      const tries = [
-        key,
-        key?.toUpperCase?.(),
-        key?.charAt?.(0)?.toUpperCase?.() + key?.slice?.(1)?.toLowerCase?.(),
-        key?.toLowerCase?.()
-      ].filter(Boolean);
-
-      for (const id of tries){
-        try{
-          const snap = await db.collection(col).doc(id).get();
-          if (snap.exists) return snap;
-        }catch(e){
-          console.error('[getDocFlexible]', e);
-        }
-      }
-      return null;
-    }
-
-    // ---- Anleitungen-Link aus Firestore laden: links/<schule>/anleitungen ----
-    async function loadAnleitungenIframeForSchool(school){
-      const frame = document.getElementById('anleitFrame');
-      if (!frame) return;
-      frame.src = 'about:blank';
-
-      // 1) Versuche die konkrete Schule
-      let snap = await getDocFlexible('links', school);
-
-      // 2) Fallback: master
-      if (!snap) {
-        snap = await getDocFlexible('links', 'master');
-      }
-
-      if (!snap){
-        console.warn('Kein Dokument in "links" für Schule oder master gefunden.');
-        alert('Kein Anleitungen-Link in Firestore gefunden (links/<schule>/anleitungen).');
-        return;
-      }
-
-      const data = snap.data() || {};
-      // Erlaubte Feldnamen-Varianten
-      const url =
-        data.anleitungen ||
-        data.Anleitungen ||
-        data.anleitung ||
-        data.Anleitung ||
-        data.anleitungenUrl ||
-        data.anleitungenURL ||
-        null;
-
-      if (url){
-        frame.src = url;
-      } else {
-        console.warn('Kein Feld "anleitungen" im Dokument "links/'+snap.id+'".');
-        alert('In Firestore wurde kein Feld "anleitungen" gefunden.');
-      }
-    }
-
-    // ---- Guard & Header + Iframe anwenden ----
-    auth.onAuthStateChanged(async (user) => {
-      if (!user) { location.href = "index.html"; return; }
-      try {
-        const school = await resolveSchool(user);
-        applyLogosForSchool(school);
-        await loadAnleitungenIframeForSchool(school);
-      } catch (e) {
-        console.error('[Anleitungen/Init]', e);
-        alert('Fehler beim Laden der Anleitungen-Quelle.');
-      }
-    });
-  </script>
+  }
+  return '';
+}
+function embedUrl(value){
+  const url=new URL(value);
+  if(url.protocol!=='https:' || !['drive.google.com','docs.google.com'].includes(url.hostname)) throw Error('Bitte einen gültigen Google-Drive-Link eintragen.');
+  const match=url.pathname.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if(match) return 'https://drive.google.com/embeddedfolderview?id='+encodeURIComponent(match[1])+'#grid';
+  const file=url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(file) return 'https://drive.google.com/file/d/'+encodeURIComponent(file[1])+'/preview';
+  if(url.pathname==='/embeddedfolderview' && url.searchParams.get('id'))return value;
+  return value;
+}
+auth.onAuthStateChanged(async user=>{
+  if(!user){ location.href='index.html'; return; }
+  const frame=document.getElementById('anleitFrame');
+  try{
+    const school=await resolveSchool(user);
+    const link=await getLink(school);
+    if(!link){ location.href='dokumente-hilfe.html?bereich=anleitungen'; return; }
+    frame.src=embedUrl(link);
+  }catch(error){
+    console.error('['+key+']',error);
+    frame.style.display='none';
+    const msg=document.createElement('p');msg.textContent='Die Ablage konnte nicht geladen werden: '+error.message;
+    frame.parentElement.appendChild(msg);
+  }
+});
+</script>
   <script src="branding-layout.js"></script>
 </body>
 </html>
