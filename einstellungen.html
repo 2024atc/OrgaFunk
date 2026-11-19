@@ -314,13 +314,22 @@
     async function addSchoolToGroup(groupId, schoolName){
       const clean=sclean(schoolName).toLowerCase();
       if(!clean) throw new Error('Kein Standortname angegeben.');
+      const slug=s=>s.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60).replace(/-+$/,'');
+      const groupSlug=slug(groupId);
+      const schoolSlug=slug(clean);
+      if(!groupSlug || !schoolSlug) throw new Error('Ungültiger Standortname.');
+      const scoped=groupSlug+'__'+schoolSlug;
       const ref=groupsRef().doc(groupId);
       await db.runTransaction(async tx=>{
         const snap=await tx.get(ref);
         if(!snap.exists) throw new Error('Gruppe nicht gefunden.');
         const schools=parseSchoolsData(snap.data());
-        if(schools.some(s=>s.toLowerCase()===clean)) throw new Error('Standort bereits vorhanden.');
-        tx.update(ref,{School:[...schools,clean]});
+        // Bereits bestehende Organisationen behalten ihre bisherigen Kennungen.
+        // Neue Organisationen verwenden die gruppenbezogene Kennung.
+        const usesScopedIds=schools.some(s=>String(s).startsWith(groupSlug+'__'));
+        const key=usesScopedIds?scoped:clean;
+        if(schools.some(s=>s.toLowerCase()===key.toLowerCase())) throw new Error('Standort bereits vorhanden.');
+        tx.update(ref,{School:[...schools,key]});
       });
     }
     async function createGroup(groupId){

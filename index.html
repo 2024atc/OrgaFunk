@@ -91,6 +91,16 @@
     .forgot-btn {color:#78d4ff;}
     .msg.empty {background:#102538;border-color:#30516a;color:#bdd4e3;}
     @media(max-width:480px){.header{gap:12px;padding:15px 8px;grid-template-columns:1fr 1.6fr 1fr}.header img{height:48px;max-width:100%}.header #logo-center{height:58px;max-width:100%}.info-wrap{padding:18px 10px 8px}.info-card iframe{height:340px;min-height:340px}.row{gap:7px}.pill{min-width:86px;padding:10px 7px}}
+
+    /* Öffentliche Organisationsregistrierung – bestehendes Design beibehalten */
+    .new-org {width:100%;max-width:560px;margin-top:4px;padding:22px 18px;text-align:center;
+      border:1px solid #38627c;border-radius:16px;background:rgba(16,43,64,.82);box-shadow:0 8px 24px #0004;}
+    .new-org h2 {margin:0 0 10px;font-size:21px;color:#edf7ff;}
+    .new-org p {margin:0 0 17px;color:#c5ddeb;line-height:1.55;font-size:15px;}
+    .new-org-link {display:inline-block;padding:12px 20px;border-radius:14px;
+      background:linear-gradient(120deg,#159ed9,#0e5c99);color:#fff;font-weight:700;
+      text-decoration:none;box-shadow:0 8px 24px #0006;}
+    .new-org-link:hover,.new-org-link:focus-visible {filter:brightness(1.15);outline-offset:3px;}
   </style>
   <link rel="stylesheet" href="branding-layout.css">
 </head>
@@ -129,6 +139,15 @@
     <button class="forgot-btn" id="forgotBtn">Passwort vergessen?</button>
 
     <div id="msg" class="msg empty"> </div>
+
+    <!-- Öffentliche Neuregistrierung: unabhängig von der Admin-Nutzerregistrierung -->
+    <section class="new-org" aria-labelledby="newOrgTitle">
+      <h2 id="newOrgTitle">Neu bei OrgaFunk?</h2>
+      <p>Du möchtest deinen Verein, dein Unternehmen oder eine andere Organisation mit OrgaFunk organisieren?<br>
+         Erstelle deine eigene Gruppe und richte deinen ersten Standort ein.</p>
+      <a class="new-org-link" href="organisation-registrieren.html">Jetzt Organisation registrieren</a>
+    </section>
+
   </div>
 
   <!-- Firebase SDKs -->
