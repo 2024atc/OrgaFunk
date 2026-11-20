@@ -1,0 +1,53 @@
+/* OrgaFunk: gezielte Reparatur nur fuer die Hauptseite.
+   Nach branding-layout.css laden. Loginseite bleibt unveraendert. */
+body.of-branded:has(#navMenu) {
+  display:flex !important;
+  flex-direction:column !important;
+  height:100dvh !important;
+  min-height:0 !important;
+  padding-top:var(--of-head) !important;
+  padding-bottom:var(--of-foot) !important;
+  overflow:hidden !important;
+}
+body.of-branded:has(#navMenu) > main {
+  display:flex !important;
+  flex:1 1 auto !important;
+  height:auto !important;
+  min-height:0 !important;
+  max-height:100% !important;
+  overflow:hidden !important;
+}
+body.of-branded:has(#navMenu) #navMenu {
+  flex-shrink:0;
+  height:100% !important;
+  max-height:100% !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+}
+body.of-branded:has(#navMenu) #of-brand-footer {
+  position:fixed !important;
+  bottom:0 !important;
+  top:auto !important;
+  height:var(--of-foot) !important;
+  z-index:1900 !important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  grid-template-rows:minmax(0,1fr) auto !important;
+  align-items:center !important;
+}
+body.of-branded:has(#navMenu) #of-brand-footer > .of-brand-slot {
+  grid-row:1 !important;
+  min-height:0 !important;
+}
+body.of-branded:has(#navMenu) #of-brand-footer > .of-legal-links {
+  grid-column:1 / -1 !important;
+  grid-row:2 !important;
+  justify-self:center !important;
+}
+/* Standortlogos sind nur im Header erlaubt. Footerlogos bleiben statisch. */
+body.of-branded:has(#navMenu) #of-brand-footer img {
+  max-height:48px !important;
+  object-fit:contain !important;
+}
+@media(max-width:700px){
+  body.of-branded:has(#navMenu) #of-brand-footer img{max-height:33px !important;}
+}

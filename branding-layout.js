@@ -34,6 +34,13 @@
     img.alt=['Advanced Tech Creations','OrgaFunk','Drakory Games'][i];
     slot.appendChild(img);footer.appendChild(slot);
   });
+  const legal=document.createElement('nav');
+  legal.className='of-legal-links';
+  legal.setAttribute('aria-label','Rechtliche Informationen');
+  [['Impressum','impressum.html'],['Nutzungsbedingungen','nutzungsbedingungen.html'],['Datenschutz','datenschutz.html']].forEach(([label,href])=>{
+    const a=document.createElement('a');a.href=new URL(href,root).href;a.textContent=label;legal.appendChild(a);
+  });
+  footer.appendChild(legal);
   document.body.appendChild(footer);
   document.body.classList.add('of-branded');
   // Standortdesign: Firestore speichert weiterhin nur Hintergrund- und Textfarbe.

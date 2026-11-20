@@ -1,5 +1,5 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>OrgaFunk – Mitgliedschaften prüfen</title><link rel="stylesheet" href="branding-layout.css"><style>
-body{background:#071522;color:#e8f5ff;font:16px Arial,sans-serif;margin:0;min-height:100vh;display:flex;flex-direction:column}header{display:flex;justify-content:space-between;align-items:center;padding:14px 22px}header img{height:70px;max-width:30%;object-fit:contain}header img:nth-child(2){height:90px}main{width:min(760px,calc(100% - 28px));margin:30px auto;flex:1}.card{background:#102438;border:1px solid #31607b;border-radius:16px;padding:25px}h1{font-size:26px}.item{border:1px solid #31607b;border-radius:10px;padding:15px;margin:12px 0}button{background:#159ed9;border:0;color:white;padding:12px 18px;border-radius:10px;cursor:pointer;font-weight:bold}button:disabled{opacity:.5}a{color:#80d6ff}#status{line-height:1.6}footer{text-align:center;padding:16px;color:#a7c4d5}
+body{background:#071522;color:#e8f5ff;font:16px Arial,sans-serif;margin:0;min-height:100vh;display:flex;flex-direction:column}header{display:flex;justify-content:space-between;align-items:center;padding:14px 22px}header img{height:70px;max-width:30%;object-fit:contain}header img:nth-child(2){height:90px}main{width:min(760px,calc(100% - 28px));margin:30px auto;flex:1}.card{background:#102438;border:1px solid #31607b;border-radius:16px;padding:25px}h1{font-size:26px}.item{border:1px solid #31607b;border-radius:10px;padding:15px;margin:12px 0}button{background:#159ed9;border:0;color:white;padding:12px 18px;border-radius:10px;cursor:pointer;font-weight:bold}button:disabled{opacity:.5}.reject-btn{background:#344b5c;margin-left:10px}.invite-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.invite-actions .reject-btn{margin-left:0}a{color:#80d6ff}#status{line-height:1.6}footer{text-align:center;padding:16px;color:#a7c4d5}
 
 
 
@@ -8,7 +8,7 @@ body{background:#071522;color:#e8f5ff;font:16px Arial,sans-serif;margin:0;min-he
 .home-btn:hover{transform:translateY(-1px) scale(1.04);box-shadow:0 8px 22px rgba(0,0,0,.45)}
 .home-btn:active{transform:translateY(0) scale(.98);box-shadow:0 4px 14px rgba(0,0,0,.3)}
 .home-btn img{width:22px;height:22px;display:block;pointer-events:none}
-</style></head><body><button class="home-btn" type="button" onclick="location.href='hauptseite.html'" aria-label="Zur Startseite"><img src="home.jpg" alt=""></button><header><img src="branding/atc.png" alt="ATC"><img src="branding/orgafunk.png" alt="OrgaFunk"><img src="branding/drakory.png" alt="Drakory"></header><main><div class="card"><h1>Meine Organisationsmitgliedschaften</h1><p>Hier siehst du deine bereits gespeicherten Mitgliedschaften. Deine bisherige Rolle wird nicht verändert.</p><div id="status" role="status">Lade …</div><div id="list"></div><button id="migrate" hidden>Bestehende Gruppenzuordnung übernehmen</button><p><a href="hauptseite.html">Zur Hauptseite</a> · <a href="weitere-organisation-erstellen.html">Weitere Organisation erstellen</a></p></div></main><footer>OrgaFunk – Advanced Tech Creations</footer>
+</style></head><body><button class="home-btn" type="button" onclick="location.href='hauptseite.html'" aria-label="Zur Startseite"><img src="home.jpg" alt=""></button><header><img src="branding/atc.png" alt="ATC"><img src="branding/orgafunk.png" alt="OrgaFunk"><img src="branding/drakory.png" alt="Drakory"></header><main><div class="card"><h1>Meine Organisationsmitgliedschaften</h1><p>Hier siehst du deine bereits gespeicherten Mitgliedschaften. Deine Mitgliedschaften und aktuellen Rollen. Angenommene Einladungen können eine bestehende Rolle ersetzen.</p><div id="status" role="status">Lade …</div><div id="list"></div><h2>Einladungen</h2><p>Einladungen können nur mit bestätigter E-Mail-Adresse angenommen werden.</p><div id="inviteList"></div><button id="migrate" hidden>Bestehende Gruppenzuordnung übernehmen</button><p><a href="hauptseite.html">Zur Hauptseite</a> · <a href="weitere-organisation-erstellen.html">Weitere Organisation erstellen</a></p></div></main><footer>OrgaFunk – Advanced Tech Creations</footer>
 <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script><script src="firebase-config.js"></script><script>
 'use strict';if(!firebase.apps.length)firebase.initializeApp(window.firebaseConfig);
 const auth=firebase.auth(),db=firebase.firestore(),statusEl=document.getElementById('status'),listEl=document.getElementById('list'),migrateBtn=document.getElementById('migrate');
@@ -27,6 +27,53 @@ else message('Deine bisherige Zuordnung ist möglicherweise standortgebunden. Si
 }else if(!legacy)message('Kein bisheriges Rollenprofil vorhanden.');else message('Deine bisherige Rolle kann nicht automatisch übernommen werden.');
 if(m.empty){const e=document.createElement('p');e.textContent='Noch keine neuen Mitgliedschaften gespeichert.';listEl.append(e);}
 }catch(e){console.error(e);message('Laden fehlgeschlagen: '+(e.message||e));}}
+async function loadInvites(){
+const target=document.getElementById('inviteList');target.replaceChildren();
+if(!current)return;
+try{
+await current.reload();await current.getIdToken(true);
+if(!current.emailVerified){target.textContent='Bitte bestätige zuerst deine E-Mail-Adresse, um Einladungen sicher zuzuordnen.';return;}
+const email=String(current.email||'').trim().toLowerCase();
+const q=await db.collection('organisationEinladungen').doc(email).collection('organisationen').get();
+if(q.empty){target.textContent='Keine offenen Einladungen vorhanden.';return;}
+for(const doc of q.docs){
+const d=doc.data(), row=document.createElement('div');row.className='item';
+const membership=db.collection('mitgliedschaften').doc(current.uid).collection('organisationen').doc(doc.id);
+const existing=await membership.get();
+const old=existing.exists?existing.data():null;
+const invitedScope=d.scope==='standort'?'standort':'gruppe';
+const invitedSchool=invitedScope==='standort'?d.school:doc.id;
+const same=!!old&&old.role===d.role&&old.scope===invitedScope&&old.school===invitedSchool;
+const roleName=r=>r==='admin'?'Administrator':r==='nutzer'?'Nutzer':String(r||'unbekannt');
+const label=document.createElement('div');label.textContent=doc.id+' · Einladung als '+roleName(d.role)+' · '+(invitedScope==='gruppe'?'Zugriff auf alle Standorte':'Nur Standort: '+invitedSchool);
+const hint=document.createElement('p');
+if(same){hint.textContent='Du bist bereits Mitglied dieser Organisation mit genau diesen Berechtigungen. Es ist keine Änderung notwendig.';}
+else if(old){hint.textContent='Du bist bereits Mitglied (aktuell: '+roleName(old.role)+', Bereich: '+(old.scope||'unbekannt')+'). Wenn du annimmst, wird deine bisherige Zuordnung durch '+roleName(d.role)+' mit Zugriff auf '+(invitedScope==='gruppe'?'alle Standorte':'Standort '+invitedSchool)+' ersetzt.';}
+else{hint.textContent='Du bist noch kein Mitglied dieser Organisation. Durch Annahme erhältst du die angegebene Rolle.';}
+const inviteRef=db.collection('organisationEinladungen').doc(email).collection('organisationen').doc(doc.id);
+const btn=document.createElement('button');btn.textContent=same?'Bereits Mitglied':old?'Rollenänderung annehmen':'Einladung annehmen';btn.disabled=same;
+const reject=document.createElement('button');reject.textContent=same?'Einladung entfernen':'Einladung ablehnen';reject.className='reject-btn';
+btn.onclick=async()=>{
+if(old&&!confirm('Deine bisherige Zuordnung ('+roleName(old.role)+', '+old.scope+', '+old.school+') wird durch '+roleName(d.role)+' ('+invitedScope+', '+invitedSchool+') ersetzt. Fortfahren?'))return;
+btn.disabled=true;reject.disabled=true;
+try{
+// Mitgliedschaft aktualisieren, nur die eingeladene Rolle ist erlaubt (Firestore-Regeln).
+await membership.set({role:d.role,scope:invitedScope,school:invitedSchool});
+// Nach erfolgreicher Annahme offene Einladung entfernen.
+await inviteRef.delete();
+await refresh();await loadInvites();message(old?'Rolle erfolgreich aktualisiert. Bitte die Hauptseite neu laden.':'Einladung angenommen. Bitte die Hauptseite neu laden.');
+}catch(e){message('Annahme fehlgeschlagen: '+e.message);btn.disabled=false;reject.disabled=false;}
+};
+reject.onclick=async()=>{
+if(!confirm('Möchtest du die Einladung zur Organisation „'+doc.id+'“ wirklich '+(same?'entfernen':'ablehnen')+'? Deine bestehende Rolle bleibt unverändert.'))return;
+btn.disabled=true;reject.disabled=true;
+try{await inviteRef.delete();await loadInvites();message('Einladung entfernt. Bestehende Berechtigungen bleiben unverändert.');}
+catch(e){message('Ablehnen fehlgeschlagen: '+e.message);btn.disabled=same;reject.disabled=false;}
+};
+const actions=document.createElement('div');actions.className='invite-actions';actions.append(btn,reject);
+row.append(label,hint,actions);target.append(row);
+}
+}catch(e){target.textContent='Einladungen konnten nicht geladen werden: '+e.message;console.error(e);}}
 migrateBtn.onclick=async()=>{if(!current||!legacy)return;const g=legacy.school;migrateBtn.disabled=true;try{await db.collection('mitgliedschaften').doc(current.uid).collection('organisationen').doc(g).set({role:legacy.role,scope:'gruppe',school:g});await refresh();}catch(e){console.error(e);message('Übernahme nicht möglich: '+(e.message||e));}finally{migrateBtn.disabled=false;}};
-auth.onAuthStateChanged(u=>{current=u;if(!u){message('Bitte zuerst anmelden.');return;}refresh();});
+auth.onAuthStateChanged(u=>{current=u;if(!u){message('Bitte zuerst anmelden.');return;}refresh();loadInvites();});
 </script><script src="branding-layout.js"></script></body></html>

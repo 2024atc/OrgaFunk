@@ -67,6 +67,7 @@
     .modal .btn.secondary{background:#222;color:#fff;border:1px solid #444}
   </style>
   <link rel="stylesheet" href="branding-layout.css">
+<link rel="stylesheet" href="OrgaFunk_Hauptseite_Layout_FIX.css">
   <!-- Standortfarben: nur Hauptseite; Betreiber-Header und -Footer bleiben unverändert. -->
   <style id="orgafunk-hauptseite-theme">
     body.of-branded.of-themed #navMenu,
@@ -177,6 +178,9 @@
 
   <div class="content" id="app" style="display:none">
     <div class="top-actions">
+      <label id="orgafunkOrganisationWrap" style="display:none;align-items:center;gap:8px;color:#fff">Organisation:
+        <select id="orgafunkOrganisationSelect" aria-label="Aktive Organisation" style="background:#10283b;color:white;border:1px solid #46718a;border-radius:8px;padding:8px"></select>
+      </label>
       <button class="btn ghost" id="chooseSchoolBtn" style="display:none">
         Organisation: <span id="chooseSchoolLabel">MASTER</span>
       </button>
@@ -489,23 +493,79 @@ auth.onAuthStateChanged(async user=>{
     }
   }
 
-  let role=(sessionStorage.getItem('role')||'').toLowerCase();
-  let school=(sessionStorage.getItem('school')||'').trim();
-  if(!role||!school){
-    const p=await db.collection('rollen').doc(user.uid).get();
-    if(p.exists){const d=p.data()||{}; role=(d.role||'').toLowerCase(); school=(d.school||'').trim();
-      sessionStorage.setItem('role',role); sessionStorage.setItem('school',school);}
+  // Organisationsmitgliedschaften werden bei jedem Seitenaufruf aus Firestore geladen.
+  const membershipSnapshot=await db.collection('mitgliedschaften').doc(user.uid).collection('organisationen').get();
+  const memberships=new Map();
+  membershipSnapshot.forEach(doc=>{
+    const m=doc.data()||{};
+    if(['gruppe','standort'].includes(m.scope) && typeof m.school==='string')
+      memberships.set(doc.id,{role:String(m.role||'nutzer').toLowerCase(),scope:m.scope,school:m.school});
+  });
+  const legacyProfile=await db.collection('rollen').doc(user.uid).get();
+  const legacy=legacyProfile.exists?(legacyProfile.data()||{}):{};
+  const legacyGroup=String(legacy.school||'');
+  const master=legacyGroup.toUpperCase()==='MASTER' && String(legacy.role||'').toLowerCase()==='admin';
+  if(legacyGroup && !master){
+    const groupHint=String(legacy.group||legacy.gruppe||'').trim();
+    const groupId=groupHint||legacyGroup;
+    try {
+      const doc=await db.collection('Schulen').doc('MASTER').collection('gruppen').doc(groupId).get();
+      if(doc.exists && !memberships.has(groupId)){
+        const sites=Array.isArray(doc.data()?.School)?doc.data().School:[doc.data()?.School];
+        const groupScope=groupId===legacyGroup;
+        if(groupScope || sites.some(s=>String(s).toLowerCase()===legacyGroup.toLowerCase()))
+          memberships.set(groupId,{role:String(legacy.role||'nutzer').toLowerCase(),scope:groupScope?'gruppe':'standort',school:legacyGroup,legacy:true});
+      }
+    }catch(e){console.warn('Legacy-Zuordnung:',e);}
   }
+  const savedOrg=sessionStorage.getItem('activeOrganisation')||'';
+  let selectedOrg=master?'MASTER':(memberships.has(savedOrg)?savedOrg:(memberships.keys().next().value||''));
+  if(!selectedOrg && !master){
+    document.getElementById('activeRolePill').textContent='Keine Organisationsmitgliedschaft gefunden';
+    document.getElementById('activeRolePill').style.display='inline-block';
+    return;
+  }
+  const orgSelect=document.getElementById('orgafunkOrganisationSelect');
+  const orgWrap=document.getElementById('orgafunkOrganisationWrap');
+  if(master){orgSelect.add(new Option('MASTER','MASTER'));}
+  else for(const [id] of memberships)orgSelect.add(new Option(id,id));
+  orgSelect.value=selectedOrg;
+  orgWrap.style.display='flex';
+  orgSelect.addEventListener('change',()=>{
+    sessionStorage.setItem('activeOrganisation',orgSelect.value);
+    // Alte Werte werden beim erneuten Laden aus Firestore ueberschrieben.
+    sessionStorage.removeItem('activeSchool');
+    location.reload();
+  });
+
+  let role=(master?'admin':memberships.get(selectedOrg)?.role||'nutzer');
+  let school=master?'MASTER':memberships.get(selectedOrg).school;
+  sessionStorage.setItem('role',role);
+  sessionStorage.setItem('school',school);
+  sessionStorage.setItem('activeOrganisation',selectedOrg);
   const isAdminLike=['admin','si-fu'].includes(role);
   if(isAdminLike){ document.getElementById('adminToggle').style.display='flex'; document.getElementById('newsTickerBtn').style.display='block'; }
   document.getElementById('settingsBtn').style.display=isAdminLike?'flex':'none';
   document.getElementById('newsTickerBtn').onclick=()=>location.href='newsticker.html';
 
-  let active=(sessionStorage.getItem('activeSchool')||school||'MASTER').trim();
+  let active=(sessionStorage.getItem('activeSchool')|| (memberships.get(selectedOrg)?.scope==='standort'?school:'') ||school||'MASTER').trim();
   if(active.toUpperCase()==='MASTER' && school && school.toUpperCase()!=='MASTER'){
     active=school; sessionStorage.setItem('activeSchool',active.toLowerCase());
   }
 
+  if(!master && memberships.get(selectedOrg)?.scope==='gruppe'){
+    try {
+      const gd=await db.doc('Schulen/MASTER/gruppen/'+selectedOrg).get();
+      const raw=gd.data()?.School;
+      const sites=(Array.isArray(raw)?raw:[raw]).filter(x=>typeof x==='string'&&x.trim());
+      if(sites.length && !sites.some(s=>s.toLowerCase()===active.toLowerCase())){
+        active=sites[0];sessionStorage.setItem('activeSchool',active.toLowerCase());
+      }
+    }catch(e){console.warn('Standorte konnten nicht geladen werden:',e);}
+  }
+  if(!master && memberships.get(selectedOrg)?.scope==='standort'){
+    active=school;sessionStorage.setItem('activeSchool',school.toLowerCase());
+  }
   document.getElementById('activeRolePill').textContent='Rolle: '+(role||'–');
   document.getElementById('activeRolePill').style.display='inline-block';
 

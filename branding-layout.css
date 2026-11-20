@@ -108,3 +108,12 @@ body.of-branded.of-themed :is(.modal .btn.secondary,.scope-dialog .ghost) {
   border:1px solid var(--of-border)!important;
 }
 /* Kalender-iFrames zeigen externe Inhalte, deren Farben nicht per CSS steuerbar sind. */
+
+/* Footer: drei Markenlogos oben, Rechtslinks darunter. */
+:root{--of-foot:96px}
+#of-brand-footer{grid-template-rows:minmax(0,1fr) auto;row-gap:4px;padding-top:5px;padding-bottom:8px}
+#of-brand-footer>.of-brand-slot{grid-row:1}
+#of-brand-footer .of-legal-links{grid-column:1/-1;grid-row:2;display:flex;justify-content:center;align-items:center;gap:clamp(10px,3vw,28px);flex-wrap:wrap;font-size:12px;line-height:1.2}
+#of-brand-footer .of-legal-links a{color:#e0eef8;text-decoration:underline;text-underline-offset:2px}
+#of-brand-footer .of-legal-links a:hover,#of-brand-footer .of-legal-links a:focus-visible{color:#8be7ff}
+@media(max-width:700px){:root{--of-foot:94px}#of-brand-footer img{max-height:33px}#of-brand-footer .of-legal-links{font-size:11px;gap:7px 13px}}

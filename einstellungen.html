@@ -88,6 +88,12 @@
     .function-grid .function-head{font-weight:bold;border-bottom:1px solid var(--border);padding-bottom:8px}
     .function-grid .function-row{padding:6px 0;border-bottom:1px solid var(--border)}
     @media(max-width:620px){.function-grid{grid-template-columns:65px minmax(90px,1fr) minmax(110px,1.3fr);gap:5px;font-size:13px}}
+    /* Die einzige Standortauswahl befindet sich oben. Interne Selects bleiben für bestehende Speicherfunktionen erhalten. */
+    #logoSchoolSelect, #themeSchoolSelect, #linksSchoolSelect { display:none; }
+    #logoAdmin .row:has(#logoSchoolSelect), #themeAdmin .row:has(#themeSchoolSelect), #linksAdmin .row:has(#linksSchoolSelect) { display:none; }
+    #organisationCards>.card, #standortCards>.card {margin:16px 0;}
+    #organisationBereich, #standortBereich {margin-top:8px;}
+    #groupSwitch, #activeSettingsSite {min-width:260px;max-width:100%;}
   </style>
   <link rel="stylesheet" href="branding-layout.css">
 </head>
@@ -95,7 +101,7 @@
 
   <div class="wrap">
     <h2>Einstellungen</h2>
-    <p>Verwalte hier gruppenbezogene Optionen.</p>
+    <p>Verwalte die Standorte und Einstellungen deiner ausgewählten Organisation.</p>
 
     <div id="guardMsg" class="guard" style="display:none;">Du benötigst Admin-Rechte, um diese Seite zu sehen.</div>
     <div id="groupGuardMsg" class="guard" style="display:none;">
@@ -103,45 +109,54 @@
     </div>
 
 
-    <!-- MASTER: zentrale Gruppenauswahl für sämtliche Einstellungen -->
-    <div class="card" id="masterGroupPicker" style="display:none;">
-      <h3>MASTER – Gruppe auswählen</h3>
-      <p class="hint">Die Auswahl gilt für Header-Logos, Farbschema, Standortverwaltung, Links und Nutzer-Standortwechsel.</p>
-        <div id="groupSwitchRow" class="row" style="display:none;">
-          <label for="groupSwitch">Gruppe wählen:</label>
-          <select id="groupSwitch" aria-label="Gruppe wählen"></select>
-          <button id="reloadGroupsBtn" class="ghost" type="button" title="Neu laden">Neu laden</button>
-        </div>
+    <div class="card" id="organisationPicker">
+      <h3>1. Organisation auswählen</h3>
+      <p class="hint">Wähle zuerst die Organisation, deren Einstellungen du bearbeiten möchtest. Bei nur einer berechtigten Organisation wird sie automatisch ausgewählt.</p>
+      <div class="row"><label for="groupSwitch">Organisation:</label>
+        <select id="groupSwitch" aria-label="Organisation auswählen"><option value="">Bitte Organisation auswählen</option></select>
+        <button id="reloadGroupsBtn" class="btn ghost" type="button">Neu laden</button>
+      </div>
       <p id="masterGroupStatus" class="hint" role="status"></p>
     </div>
-
-    <div class="card" id="logoAdmin" style="display:none;">
-      <div class="card-head"><h3>Standortdesign – Header-Logos</h3></div>
-      <div class="collapsible-body" style="display:block;padding:16px;">
-        <p class="hint">Eigene Logos pro Standort hochladen. Ohne eigenes Bild bleibt das vorhandene GitHub-Logo aktiv.</p>
-        <div class="row"><label for="logoSchoolSelect">Standort:</label><select id="logoSchoolSelect"></select></div>
-        <div id="logoSlots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-top:16px;"></div>
-        <p id="logoStatus" class="hint" role="status"></p>
-      </div>
+    <div id="organisationBereich" style="display:none;width:100%;">
+      <h2 style="margin:12px 0">Organisationseinstellungen</h2>
+      <p class="hint">Diese Einstellungen gelten für die gesamte gewählte Organisation.</p>
     </div>
-    <!-- Standort-Farbschema -->
-    <div class="card" id="themeAdmin" style="display:none;">
-      <div class="card-head"><h3>Farbschema – Standort</h3>
-        <button id="toggleTheme" class="chev-btn" aria-controls="themeAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev">▼</span></button>
+    <div id="organisationCards" style="display:none;width:100%;">
+      <h3>2. Organisation verwalten</h3>
+<div class="card" id="schoolAdmin" style="display:none;">
+      <div class="card-head">
+        <h3>1. Standort hinzufügen / verwalten</h3>
+        <button id="toggleSchool" class="chev-btn" aria-controls="schoolAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev" aria-hidden="true">▼</span></button>
       </div>
-      <div id="themeAdminBody" class="collapsible-body" hidden>
-        <p class="hint">Hintergrund- und Textfarbe für den gewählten Standort. Änderungen gelten für alle dort angemeldeten Nutzer.</p>
-        <div class="row"><label for="themeSchoolSelect">Standort:</label><select id="themeSchoolSelect"></select></div>
-        <div class="row" style="margin-top:12px"><label for="themeBg">Hintergrundfarbe:</label><input id="themeBg" type="color" value="#000000"></div>
-        <div class="row" style="margin-top:12px"><label for="themeText">Textfarbe:</label><input id="themeText" type="color" value="#ffffff"></div>
-        <div class="row" style="margin-top:12px"><button id="themeSave" type="button">Farbschema speichern</button><button id="themeReset" type="button" class="btn ghost">Standard wiederherstellen</button></div>
-        <p id="themeStatus" class="hint" role="status"></p>
+      <div id="schoolAdminBody" class="collapsible-body" hidden>
+        <p class="hint">Aktive Organisation: <strong id="groupLabel">–</strong></p>
+        <div>
+          <strong>Standorte in der aktiven Gruppe</strong>
+          <div id="schoolsList" class="list"></div>
+        </div>
+        <div class="section-row">
+          <input type="text" id="newSchoolInput" placeholder="Neuen Standort hinzufügen (z. B. Degenhardt)" />
+          <button id="addSchoolBtn">Hinzufügen</button>
+        </div>
+        <p class="hint">Ein Standortname darf in anderen Organisationen erneut vorkommen. Bestehende Standorte werden nicht verändert.</p>
       </div>
-    </div>
-
-
-    <!-- Funktionsverwaltung: gruppenweite Standardwerte -->
-    <div class="card" id="functionsAdmin" style="display:none;">
+    </div><div class="card" id="groupUsersAdmin" style="display:none;">
+      <div class="card-head"><h3>2. Nutzer zur Gruppe hinzufügen</h3>
+        <button id="toggleGroupUsers" class="chev-btn" type="button" aria-controls="groupUsersBody" aria-expanded="false" title="Aufklappen"><span class="chev" aria-hidden="true">▼</span></button>
+      </div>
+      <div id="groupUsersBody" class="collapsible-body" hidden>
+        <p class="hint">Der Benutzer erhält eine Einladung an seine E-Mail-Adresse. Nach Annahme gilt die Mitgliedschaft für <strong>alle Standorte</strong> der ausgewählten Organisation, auch für künftig angelegte.</p>
+        <p class="hint">Aktive Organisation: <strong id="groupUsersGroupLabel">–</strong></p>
+        <div class="section-row"><label for="groupUserEmail">E-Mail-Adresse</label>
+          <input id="groupUserEmail" type="email" autocomplete="email" placeholder="name@beispiel.de" /></div>
+        <div class="section-row"><label for="groupUserRole">Berechtigung</label>
+          <select id="groupUserRole"><option value="nutzer">Nutzer – alle Standorte</option><option value="admin">Admin – alle Standorte verwalten</option></select>
+          <button id="addGroupUserBtn" type="button">Nutzer hinzufügen</button></div>
+        <p id="groupUserStatus" class="hint" role="status"></p>
+        <p class="hint">Bestehende Mitgliedschaften in anderen Organisationen werden nicht verändert. Die Einladung wird in OrgaFunk gespeichert, aber nicht automatisch als E-Mail verschickt. Der Benutzer findet sie unter „Meine Organisationen“. Für die sichere Annahme muss seine E-Mail-Adresse bestätigt sein.</p>
+      </div>
+    </div><div class="card" id="functionsAdmin" style="display:none;">
       <div class="card-head"><h3>Funktionsverwaltung</h3>
         <button id="toggleFunctions" class="chev-btn" type="button" aria-controls="functionsAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev">▼</span></button>
       </div>
@@ -154,47 +169,53 @@
         </div>
         <p id="functionsStatus" class="hint" role="status"></p>
       </div>
+    </div>    </div>
+    <div class="card" id="standortPicker" style="display:none;">
+      <h3>3. Standort auswählen</h3>
+      <p class="hint">Standortbezogene Einstellungen werden erst nach dieser Auswahl freigegeben.</p>
+      <div class="row"><label for="activeSettingsSite">Standort:</label>
+        <select id="activeSettingsSite"><option value="">Bitte Standort auswählen</option></select>
+      </div><p id="sitePickerStatus" class="hint" role="status"></p>
     </div>
-
-    <!-- Standortverwaltung -->
-    <div class="card" id="schoolAdmin" style="display:none;">
-      <div class="card-head">
-        <h3>Standortverwaltung</h3>
-        <button id="toggleSchool" class="chev-btn" aria-controls="schoolAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev" aria-hidden="true">▼</span></button>
-      </div>
-      <div id="schoolAdminBody" class="collapsible-body" hidden>
-        <p class="hint">Aktive Gruppe: <span id="groupLabel">–</span></p>
-        <div>
-          <strong>Standorte in der aktiven Gruppe</strong>
-          <div id="schoolsList" class="list"></div>
-        </div>
-        <div class="section-row">
-          <input type="text" id="newSchoolInput" placeholder="Neuen Standort hinzufügen (z. B. Degenhardt)" />
-          <button id="addSchoolBtn">Hinzufügen</button>
-        </div>
-        <p class="hint">Tipp: Namen eindeutig wählen. Groß-/Kleinschreibung wird normalisiert.</p>
-      </div>
+    <div id="standortBereich" style="display:none;width:100%;">
+      <h2 style="margin:12px 0">Standorteinstellungen</h2>
+      <p class="hint">Alle Änderungen beziehen sich ausschließlich auf den oben ausgewählten Standort.</p>
     </div>
-
-    <!-- Gruppenverwaltung (nur MASTER) -->
-    <div class="card" id="groupAdmin" style="display:none;">
-      <div class="card-head">
-        <h3>Gruppenverwaltung (MASTER)</h3>
-        <button id="toggleGroup" class="chev-btn" aria-controls="groupAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev" aria-hidden="true">▼</span></button>
+    <div id="standortCards" style="display:none;width:100%;">
+<div class="card" id="siteUsersAdmin" style="display:none;">
+  <div class="card-head"><h3>1. Nutzer zum Standort hinzufügen</h3><button id="toggleSiteUsers" class="chev-btn" type="button" aria-controls="siteUsersBody" aria-expanded="false" title="Aufklappen"><span class="chev">▼</span></button></div>
+  <div id="siteUsersBody" class="collapsible-body" hidden>
+    <p class="hint">Einladung an ein bestehendes OrgaFunk-Konto. Der Zugriff gilt <strong>nur für den ausgewählten Standort</strong>, nicht für die gesamte Organisation. Die E-Mail-Adresse muss beim Empfänger bestätigt sein.</p>
+    <p class="hint">Ausgewählter Standort: <strong id="siteUsersSiteLabel">–</strong></p>
+    <div class="section-row"><label for="siteUserEmail">E-Mail-Adresse</label><input id="siteUserEmail" type="email" autocomplete="email" placeholder="name@beispiel.de"></div>
+    <div class="section-row"><label for="siteUserRole">Berechtigung</label><select id="siteUserRole"><option value="nutzer">Nutzer – nur dieser Standort</option><option value="admin">Admin – nur dieser Standort</option></select><button id="addSiteUserBtn" type="button">Einladung erstellen</button></div>
+    <p id="siteUserStatus" class="hint" role="status"></p>
+    <p class="hint">Wichtig: Eine angenommene Standort-Einladung ersetzt eine vorhandene Mitgliedschaft in derselben Organisation. Bei bisher gruppenweitem Zugriff würde sich der Zugriff auf diesen Standort beschränken. Dies wird vor Annahme angezeigt.</p>
+  </div>
+</div>
+<div class="card" id="logoAdmin" style="display:none;">
+      <div class="card-head"><h3>3. Logos – Standort</h3></div>
+      <div class="collapsible-body" style="display:block;padding:16px;">
+        <p class="hint">Eigene Logos pro Standort hochladen. Ohne eigenes Bild bleibt das vorhandene GitHub-Logo aktiv.</p>
+        <div class="row"><label for="logoSchoolSelect">Standort:</label><select id="logoSchoolSelect"></select></div>
+        <div id="logoSlots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-top:16px;"></div>
+        <p id="logoStatus" class="hint" role="status"></p>
       </div>
-      <div id="groupAdminBody" class="collapsible-body" hidden>
-        <div class="section-row">
-          <input type="text" id="newGroupInput" placeholder="Neue Gruppe anlegen (z. B. NORD)" />
-          <button id="addGroupBtn">Gruppe anlegen</button>
-        </div>
-        <p class="hint">Erzeugt einen Eintrag in <code>Schulen/MASTER/gruppen/&lt;gruppe&gt;</code> mit leerer Liste.</p>
+    </div><div class="card" id="themeAdmin" style="display:none;">
+      <div class="card-head"><h3>2. Farbschema – Standort</h3>
+        <button id="toggleTheme" class="chev-btn" aria-controls="themeAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev">▼</span></button>
       </div>
-    </div>
-
-    <!-- Links -->
-    <div class="card" id="linksAdmin" style="display:none;">
+      <div id="themeAdminBody" class="collapsible-body" hidden>
+        <p class="hint">Hintergrund- und Textfarbe für den gewählten Standort. Änderungen gelten für alle dort angemeldeten Nutzer.</p>
+        <div class="row"><label for="themeSchoolSelect">Standort:</label><select id="themeSchoolSelect"></select></div>
+        <div class="row" style="margin-top:12px"><label for="themeBg">Hintergrundfarbe:</label><input id="themeBg" type="color" value="#000000"></div>
+        <div class="row" style="margin-top:12px"><label for="themeText">Textfarbe:</label><input id="themeText" type="color" value="#ffffff"></div>
+        <div class="row" style="margin-top:12px"><button id="themeSave" type="button">Farbschema speichern</button><button id="themeReset" type="button" class="btn ghost">Standard wiederherstellen</button></div>
+        <p id="themeStatus" class="hint" role="status"></p>
+      </div>
+    </div><div class="card" id="linksAdmin" style="display:none;">
       <div class="card-head">
-        <h3>Links</h3>
+        <h3>4. Links – Standort</h3>
         <button id="toggleLinks" class="chev-btn" aria-controls="linksAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev" aria-hidden="true">▼</span></button>
       </div>
       <div id="linksAdminBody" class="collapsible-body" hidden>
@@ -213,58 +234,7 @@
           <button id="linksSaveBtn" class="btn" type="button">Änderungen speichern</button>
         </div>
       </div>
-    </div>
-
-    <!-- Nutzer-Standortwechsel (UID) -->
-    <div class="card" id="trainerSwitch" style="display:none;">
-      <div class="card-head">
-        <h3>Nutzer-Standortwechsel</h3>
-        <button id="toggleTrainerSwitch" class="chev-btn" aria-controls="trainerSwitchBody" aria-expanded="false" title="Aufklappen"><span class="chev" aria-hidden="true">▼</span></button>
-      </div>
-      <div id="trainerSwitchBody" class="collapsible-body" hidden>
-        <div class="row">
-          <label for="trainerUidInput">UID des Nutzers:</label>
-          <input id="trainerUidInput" type="text" placeholder="z. B. a1b2c3d4e5..." style="min-width:280px" />
-        </div>
-        <div class="row" style="margin-top:8px;">
-          <label for="trainerSchoolSelect">Neuer Standort:</label>
-          <select id="trainerSchoolSelect" aria-label="Neuen Standort wählen"></select>
-          <button id="reloadTrainerSchools" class="ghost" type="button" title="Neu laden">Neu laden</button>
-        </div>
-        <div class="row" style="margin-top:10px;">
-          <button id="confirmTrainerSwitch" class="btn">Bestätigen</button>
-        </div>
-
-        <!-- Untermenü: UID abrufen -->
-        <div class="subcard">
-          <div class="subcard-head">
-            <strong>UID abrufen</strong>
-            <button id="toggleUidFetcher" class="chev-btn" aria-controls="uidFetcherBody" aria-expanded="false" title="Aufklappen">
-              <span class="chev" aria-hidden="true">▼</span>
-            </button>
-          </div>
-          <div id="uidFetcherBody" class="collapsible-body" hidden>
-            <div class="row" style="margin-top:8px;">
-              <label for="uidEmail">E-Mail</label>
-              <input id="uidEmail" type="email" placeholder="user@example.com" style="min-width:260px" />
-            </div>
-            <div class="row" style="margin-top:6px;">
-              <label for="uidPassword">Passwort</label>
-              <input id="uidPassword" type="password" placeholder="••••••••" style="min-width:260px" />
-            </div>
-            <div class="row" style="margin-top:10px;">
-              <button id="fetchUidBtn" class="btn">UID abrufen</button>
-            </div>
-            <div class="row" style="margin-top:8px;">
-              <input id="uidResult" type="text" readonly placeholder="UID erscheint hier" style="min-width:320px; flex:1;" />
-              <button id="copyUidBtn" class="copy-btn">Kopieren</button>
-            </div>
-            <p class="hint"></p>
-          </div>
-        </div>
-      </div>
-    </div>
-
+    </div>    </div>
   </div>
 
   <button class="home-btn" onclick="location.href='hauptseite.html'" aria-label="Zur Startseite">
@@ -324,11 +294,10 @@
         const snap=await tx.get(ref);
         if(!snap.exists) throw new Error('Gruppe nicht gefunden.');
         const schools=parseSchoolsData(snap.data());
-        // Bereits bestehende Organisationen behalten ihre bisherigen Kennungen.
-        // Neue Organisationen verwenden die gruppenbezogene Kennung.
-        const usesScopedIds=schools.some(s=>String(s).startsWith(groupSlug+'__'));
-        const key=usesScopedIds?scoped:clean;
-        if(schools.some(s=>s.toLowerCase()===key.toLowerCase())) throw new Error('Standort bereits vorhanden.');
+                 // Standort-IDs neuer Organisationen sind organisationsbezogen.
+         // Vorhandene IDs bleiben unverändert; keine automatische Migration.
+         const key=scoped;
+if(schools.some(s=>s.toLowerCase()===key.toLowerCase())) throw new Error('Standort bereits vorhanden.');
         tx.update(ref,{School:[...schools,key]});
       });
     }
@@ -438,7 +407,8 @@
     }
     async function saveLinksChanges(){
       const count=Object.keys(linksDirtyPatch).length; if(!count) return;
-      const school=linksSelectedSchool||'MASTER';
+      const school=linksSelectedSchool;
+      if(!school){alert('Bitte zuerst einen Standort auswählen.');return;}
       const res=await getDocFlexible('links',school);
       const targetId=res?res.id:school;
       const patch={}; let willDelete=[];
@@ -701,201 +671,175 @@
     document.getElementById('functionsSave').addEventListener('click',saveFunctionsEditor);
     document.getElementById('functionsReset').addEventListener('click',resetFunctionsEditor);
 
-    /* ===== Auth / Init ===== */
+    /* ===== Auth / Init: getrennte Organisation-/Standortauswahl ===== */
     auth.onAuthStateChanged(async user=>{
       if(!user){ location.href='index.html'; return; }
-
-      const roleDoc = await db.collection('rollen').doc(user.uid).get();
-      if(!roleDoc.exists){ alert('Keine Rolle gefunden.'); location.href='hauptseite.html'; return; }
-      const roleData = roleDoc.data()||{};
-      const role = String(roleData.role||'').toLowerCase();
-      const baseGroupKeyExact = sclean(roleData.school || 'MASTER');
-
-      if(!['admin','si-fu'].includes(role)){
-        document.getElementById('guardMsg').style.display='block';
-        setTimeout(()=>location.href='hauptseite.html',800);
-        return;
-      }
-
-      logoRole=role; logoOwnSchool=baseGroupKeyExact;
-      document.getElementById('logoAdmin').style.display='block';
-      document.getElementById('themeAdmin').style.display='block';
-      setupToggle('toggleTheme','themeAdminBody');
-      const allowed = await isGroupContext(baseGroupKeyExact);
-      if(!allowed){
-        document.getElementById('groupGuardMsg').style.display='block';
-        ['schoolAdmin','groupAdmin','linksAdmin','trainerSwitch','functionsAdmin'].forEach(id=>{
-          const el=document.getElementById(id); if(el) el.style.display='none';
+      const groupSel=document.getElementById('groupSwitch');
+      const siteSel=document.getElementById('activeSettingsSite');
+      const status=document.getElementById('masterGroupStatus');
+      const siteStatus=document.getElementById('sitePickerStatus');
+      let isMaster=false, authorizedGroups=[], manageGroup='', siteList=[];
+      let loadVersion=0;
+      const display=(id,show)=>document.getElementById(id).style.display=show?'block':'none';
+      const setStatus=msg=>{status.textContent=msg;};
+      const normalized=s=>String(s||'').trim().toLowerCase();
+      function resetSite(){
+        siteSel.replaceChildren(new Option('Bitte Standort auswählen',''));
+        siteSel.value=''; siteList=[];
+        ['standortBereich','standortCards','siteUsersAdmin','themeAdmin','logoAdmin','linksAdmin'].forEach(id=>display(id,false));
+        document.getElementById('siteUserStatus').textContent='';
+        siteStatus.textContent='Bitte einen Standort auswählen.';
+        // Kein Standort darf implizit von einer vorherigen Organisation übernommen werden.
+        ['logoSchoolSelect','themeSchoolSelect','linksSchoolSelect'].forEach(id=>{
+          const el=document.getElementById(id);el.replaceChildren();
         });
-        updateLogoSchools([baseGroupKeyExact]);
-        initThemeSelect([baseGroupKeyExact]);
-        document.getElementById('themeAdmin').style.display='block';
-        return;
+        logoAllowedSchools=[];themeAllowed=[];
+        linksSelectedSchool='';clearDirty();
       }
-
-      // Karten sichtbar
-      document.getElementById('functionsAdmin').style.display='block';
-       setupToggle('toggleFunctions','functionsAdminBody');
-       document.getElementById('schoolAdmin').style.display='block';
-      document.getElementById('linksAdmin').style.display='block';
-      document.getElementById('trainerSwitch').style.display='block';
+      function chooseSite(id){
+        if(!siteList.includes(id)){resetSite();return;}
+        ['logoSchoolSelect','themeSchoolSelect','linksSchoolSelect'].forEach(selectId=>{
+          const el=document.getElementById(selectId);
+          el.replaceChildren(new Option(id,id));el.value=id;
+        });
+        logoAllowedSchools=[normalized(id)];themeAllowed=[normalized(id)];
+        linksSelectedSchool=id;
+        ['standortBereich','standortCards','siteUsersAdmin','themeAdmin','logoAdmin','linksAdmin'].forEach(id=>display(id,true));
+        document.getElementById('siteUsersSiteLabel').textContent=id.startsWith(manageGroup+'__')?id.slice(manageGroup.length+2):id;
+        siteStatus.textContent='Aktiver Standort: '+(id.startsWith(manageGroup+'__')?id.slice(manageGroup.length+2):id);
+        renderLogoSlots();loadTheme();loadLinksForSchool(id);
+      }
+      async function selectGroup(id){
+        const version=++loadVersion;
+        manageGroup='';
+        ['organisationBereich','organisationCards','standortPicker','schoolAdmin','groupUsersAdmin'].forEach(x=>display(x,false));
+        resetSite();
+        if(!id)return;
+        if(!authorizedGroups.includes(id)){setStatus('Für diese Organisation besteht keine Administratorberechtigung.');return;}
+        setStatus('Lade Organisation …');
+        try{
+          // Berechtigung nochmals unmittelbar aus Firestore laden.
+          if(!isMaster){
+            const member=await db.collection('mitgliedschaften').doc(user.uid).collection('organisationen').doc(id).get();
+            const m=member.exists?member.data():{};
+            if(m.scope!=='gruppe'||!['admin','si-fu'].includes(normalized(m.role))||m.school!==id){
+              throw Error('Keine Gruppenadministratorberechtigung für diese Organisation.');
+            }
+          }
+          const result=await loadGroupSchools(id);
+          if(version!==loadVersion)return;
+          if(result.id!==id || !result.schools.length && !(await groupsRef().doc(id).get()).exists){throw Error('Organisation nicht gefunden.');}
+          manageGroup=id;
+          siteList=result.schools;
+          display('organisationBereich',true);display('organisationCards',true);display('standortPicker',true);display('schoolAdmin',true);display('groupUsersAdmin',true);
+          document.getElementById('groupLabel').textContent=id;
+          document.getElementById('groupUsersGroupLabel').textContent=id;
+          renderChips(document.getElementById('schoolsList'),siteList.map(x=>x.startsWith(id+'__')?x.slice(id.length+2):x));
+          await loadFunctionsEditor(id);
+          if(version!==loadVersion)return;
+          siteSel.replaceChildren(new Option('Bitte Standort auswählen',''));
+          siteList.forEach(site=>siteSel.add(new Option(site.startsWith(id+'__')?site.slice(id.length+2):site,site)));
+          // Standort wird bewusst NICHT automatisch gewählt.
+          siteSel.value='';
+          siteStatus.textContent=siteList.length?'Bitte einen Standort auswählen.':'Noch keine Standorte angelegt.';
+          setStatus('Aktive Organisation: '+id);
+        }catch(e){setStatus('Organisation konnte nicht geladen werden: '+e.message);console.error(e);}
+      }
+      async function loadAuthorizedGroups(){
+        setStatus('Lade berechtigte Organisationen …');
+        const old=groupSel.value;
+        try{
+          const profile=await db.collection('rollen').doc(user.uid).get();
+          const p=profile.exists?profile.data():{};
+          isMaster=normalized(p.school)==='master'&&normalized(p.role)==='admin';
+          if(isMaster){authorizedGroups=await loadAllGroups();}
+          else{
+            const memberships=await db.collection('mitgliedschaften').doc(user.uid).collection('organisationen').get();
+            authorizedGroups=memberships.docs.filter(d=>{
+              const m=d.data();return m.scope==='gruppe'&&['admin','si-fu'].includes(normalized(m.role))&&m.school===d.id;
+            }).map(d=>d.id).sort((a,b)=>a.localeCompare(b,'de'));
+          }
+          groupSel.replaceChildren(new Option('Bitte Organisation auswählen',''));
+          authorizedGroups.forEach(g=>groupSel.add(new Option(g,g)));
+          // Mehrere Organisationen: explizite Wahl; eine Organisation: automatisch wählen.
+          const initial=authorizedGroups.length===1?authorizedGroups[0]:(authorizedGroups.includes(old)?old:'');
+          groupSel.value=initial;
+          if(!authorizedGroups.length){setStatus('Keine verwaltbare Organisation vorhanden.');return;}
+          await selectGroup(initial);
+          if(!initial)setStatus('Bitte zuerst eine Organisation auswählen.');
+        }catch(e){setStatus('Berechtigungen konnten nicht geladen werden: '+e.message);console.error(e);}
+      }
+      // Bereits vorhandene Speicher- und Editorfunktionen werden weiterverwendet.
+      setupToggle('toggleFunctions','functionsAdminBody');
       setupToggle('toggleSchool','schoolAdminBody');
+      setupToggle('toggleGroupUsers','groupUsersBody');
       setupToggle('toggleLinks','linksAdminBody');
-      setupToggle('toggleTrainerSwitch','trainerSwitchBody');
-      setupToggle('toggleUidFetcher','uidFetcherBody');
-
-      const isMaster = (baseGroupKeyExact.toUpperCase()==='MASTER');
-      const groupAdmin = document.getElementById('groupAdmin');
-      if(isMaster){
-        groupAdmin.style.display='block';
-        document.getElementById('masterGroupPicker').style.display='block';
-        setupToggle('toggleGroup','groupAdminBody');
-      } else {
-        groupAdmin.style.display='none';
-        // Gruppenadministratoren dürfen Nutzer innerhalb ihrer eigenen Gruppe umziehen.
-      }
-
-      let manageGroup = isMaster ? (sessionStorage.getItem('manageGroupId') || baseGroupKeyExact) : baseGroupKeyExact;
-      const switchRow = document.getElementById('groupSwitchRow');
-      const switchEl  = document.getElementById('groupSwitch');
-      const reloadBtn = document.getElementById('reloadGroupsBtn');
-
-      document.getElementById('linksSaveBtn').onclick = saveLinksChanges;
-      document.getElementById('linksResetBtn').onclick = resetLinksChanges;
-      document.getElementById('reloadLinksSchools').onclick = async ()=>{ await refreshSchools(); };
-      document.getElementById('reloadTrainerSchools').onclick = async ()=>{ await refreshSchools(); };
-
-      async function refreshSchools(){
-        document.getElementById('groupLabel').textContent = manageGroup;
-         await loadFunctionsEditor(manageGroup);
-        const { id:resolvedId, schools } = await loadGroupSchools(manageGroup);
-        sessionStorage.setItem('resolvedManageGroupId', resolvedId);
-        renderChips(document.getElementById('schoolsList'), schools);
-
-        const preferred = (sessionStorage.getItem('linksSchool')
-                          || sessionStorage.getItem('activeSchool')
-                          || (schools && schools[0]) || '').toString();
-        populateLinksSchoolSelect(schools, preferred);
-        populateTrainerSchoolSelect(schools, preferred);
-        updateLogoSchools(schools);
-        initThemeSelect(schools);
-      }
-
-      if(isMaster){
-        switchRow.style.display='flex';
-        const fill = async ()=>{
-          const groups = await loadAllGroups();
-          if(groups.length && !groups.includes(manageGroup)){
-            const found = groups.find(g=>g.toLowerCase()===manageGroup.toLowerCase());
-            manageGroup = found || groups[0];
-          }
-          populateGroupSwitcher(switchEl, groups, manageGroup);
-          await refreshSchools();
-        };
-        reloadBtn.onclick = fill;
-        switchEl.onchange = async ()=>{
-          if(Object.keys(linksDirtyPatch).length){
-            const ok = confirm('Es gibt ungespeicherte Änderungen in „Links“. Verwerfen beim Gruppenwechsel?');
-            if(!ok){ switchEl.value = manageGroup; return; }
-          }
-          manageGroup = switchEl.value;
-          sessionStorage.setItem('manageGroupId', manageGroup);
-          await refreshSchools();
-        };
-        await fill();
-      } else {
-        switchRow.style.display='none';
-        await refreshSchools();
-      }
-
-      // Standort zur Gruppe hinzufügen
-      document.getElementById('addSchoolBtn').onclick = async ()=>{
-        const inp = document.getElementById('newSchoolInput');
-        const name = sclean(inp.value);
-        if(!name){ alert('Bitte einen Standortnamen eingeben.'); return; }
-        try{
-          const targetId = sessionStorage.getItem('resolvedManageGroupId') || manageGroup;
-          await addSchoolToGroup(targetId, name);
-          await refreshSchools();
-          inp.value = '';
-        }catch(e){
-          console.error(e);
-          alert('Fehler beim Hinzufügen: ' + (e?.message || e));
+      setupToggle('toggleTheme','themeAdminBody');
+      setupToggle('toggleSiteUsers','siteUsersBody');
+      document.getElementById('linksSaveBtn').onclick=saveLinksChanges;
+      document.getElementById('linksResetBtn').onclick=resetLinksChanges;
+      document.getElementById('reloadLinksSchools').onclick=()=>{if(siteSel.value)loadLinksForSchool(siteSel.value);};
+      groupSel.onchange=async()=>{
+        if(Object.keys(linksDirtyPatch).length && !confirm('Ungespeicherte Link-Änderungen verwerfen?')){
+          groupSel.value=manageGroup;return;
         }
+        await selectGroup(groupSel.value);
       };
-
-      // MASTER: Gruppe anlegen
-      if(isMaster){
-        document.getElementById('addGroupBtn').onclick = async ()=>{
-          const inp = document.getElementById('newGroupInput');
-          const gname = sclean(inp.value);
-          if(!gname){ alert('Bitte einen Gruppennamen eingeben.'); return; }
-          try{
-            await createGroup(gname);
-            alert('Gruppe "'+gname+'" wurde angelegt.');
-            inp.value='';
-            const groups = await loadAllGroups();
-           document.getElementById('masterGroupStatus').textContent = groups.length ? 'Verfügbare Gruppen: ' + groups.join(', ') : 'Keine Gruppen gefunden.';
-            populateGroupSwitcher(switchEl, groups, gname);
-            manageGroup = gname;
-            sessionStorage.setItem('manageGroupId', manageGroup);
-            await refreshSchools();
-          }catch(e){
-            console.error(e);
-            alert('Fehler beim Anlegen der Gruppe: ' + (e?.message || e));
-          }
-        };
-      }
-
-      // Trainer-Schulwechsel (UID -> rollen/<UID>.school)
-      document.getElementById('confirmTrainerSwitch').onclick = async ()=>{
-        const uid = sclean(document.getElementById('trainerUidInput').value);
-        const newSchool = sclean(document.getElementById('trainerSchoolSelect').value);
-        if(!uid){ alert('Bitte eine UID eingeben.'); return; }
-        if(!newSchool){ alert('Bitte einen Standort wählen.'); return; }
-        try{
-          if(uid===user.uid)throw Error('Der eigene Standort kann hier nicht geändert werden.');
-          const allowedTargets = (await loadGroupSchools(manageGroup)).schools.map(x=>sclean(x).toLowerCase());
-          if(!allowedTargets.includes(newSchool.toLowerCase()))throw Error('Standort gehört nicht zur verwalteten Gruppe.');
-          const targetRef=db.collection('rollen').doc(uid);
-          const target=await targetRef.get();
-          if(!target.exists)throw Error('Nutzerprofil nicht gefunden.');
-          const targetRole=String(target.data().role||'').toLowerCase();
-          if(!['nutzer','trainer'].includes(targetRole))throw Error('Nur Nutzer dürfen hier den Standort wechseln.');
-          await targetRef.update({ school: newSchool });
-          alert('Standort aktualisiert für UID: ' + uid);
-        }catch(e){
-          console.error(e);
-          alert('Standortwechsel fehlgeschlagen: ' + (e?.message || e));
+      siteSel.onchange=()=>{
+        if(Object.keys(linksDirtyPatch).length && !confirm('Ungespeicherte Link-Änderungen verwerfen?')){
+          siteSel.value=linksSelectedSchool||'';return;
         }
+        clearDirty();chooseSite(siteSel.value);
       };
-
-      // UID abrufen (sekundäre App)
-      document.getElementById('fetchUidBtn').onclick = async ()=>{
-        const email = sclean(document.getElementById('uidEmail').value);
-        const pw = sclean(document.getElementById('uidPassword').value);
-        const out = document.getElementById('uidResult');
+      document.getElementById('reloadGroupsBtn').onclick=loadAuthorizedGroups;
+      document.getElementById('addGroupUserBtn').onclick=async()=>{
+        const statusEl=document.getElementById('groupUserStatus');
+        const email=document.getElementById('groupUserEmail').value.trim().toLowerCase();
+        const role=document.getElementById('groupUserRole').value;
+        if(!manageGroup){statusEl.textContent='Bitte zuerst eine Organisation auswählen.';return;}
+        if(!/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(email)){statusEl.textContent='Bitte eine gültige E-Mail-Adresse eingeben.';return;}
+        if(!['admin','nutzer'].includes(role))return;
+        if(email===String(user.email||'').toLowerCase()){statusEl.textContent='Die eigene Rolle kann hier nicht geändert werden.';return;}
+        if(!confirm('Einladung für '+email+' als '+role+' zu '+manageGroup+' anlegen?'))return;
+        const btn=document.getElementById('addGroupUserBtn');btn.disabled=true;
         try{
-          out.value = '…';
-          const uid = await fetchUidByEmailPassword(email, pw);
-          out.value = uid || '(keine UID)';
-          if(uid){
-            // kleine Quality-of-Life: gleich oben eintragen
-            const uidInput = document.getElementById('trainerUidInput');
-            if(uidInput && !uidInput.value) uidInput.value = uid;
-          }
-        }catch(e){
-          console.error(e);
-          out.value = '';
-          alert('UID konnte nicht abgerufen werden: ' + (e?.message || e));
-        }
+          const ref=db.collection('organisationEinladungen').doc(email).collection('organisationen').doc(manageGroup);
+          await ref.set({email:email,role:role,scope:'gruppe',school:manageGroup,invitedBy:user.uid});
+          statusEl.textContent='Einladung gespeichert. Der Benutzer kann sie unter „Meine Organisationen“ annehmen. Es wurde keine E-Mail automatisch versendet.';
+          document.getElementById('groupUserEmail').value='';
+        }catch(e){statusEl.textContent='Einladung fehlgeschlagen: '+e.message;console.error(e);}
+        finally{btn.disabled=false;}
       };
-      document.getElementById('copyUidBtn').onclick = async ()=>{
-        const out = document.getElementById('uidResult');
-        if(!out.value){ alert('Keine UID vorhanden.'); return; }
-        try{ await navigator.clipboard.writeText(out.value); alert('UID kopiert.'); }
-        catch{ alert('Konnte UID nicht kopieren.'); }
+      document.getElementById('addSiteUserBtn').onclick=async()=>{
+        const statusEl=document.getElementById('siteUserStatus');
+        const email=document.getElementById('siteUserEmail').value.trim().toLowerCase();
+        const role=document.getElementById('siteUserRole').value;
+        const site=siteSel.value;
+        if(!manageGroup||!site||!siteList.includes(site)){statusEl.textContent='Bitte zuerst Organisation und Standort auswählen.';return;}
+        if(!/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(email)){statusEl.textContent='Bitte eine gültige E-Mail-Adresse eingeben.';return;}
+        if(!['admin','nutzer'].includes(role))return;
+        if(email===String(user.email||'').trim().toLowerCase()){statusEl.textContent='Die eigene Rolle kann hier nicht geändert werden.';return;}
+        if(!confirm('Einladung für '+email+' als '+role+' NUR für Standort '+site+' in '+manageGroup+' anlegen? Eine vorhandene offene Einladung zu dieser Organisation wird ersetzt.'))return;
+        const btn=document.getElementById('addSiteUserBtn');btn.disabled=true;
+        try{
+          await db.collection('organisationEinladungen').doc(email).collection('organisationen').doc(manageGroup).set({email,role,scope:'standort',school:site,invitedBy:user.uid});
+          statusEl.textContent='Standort-Einladung gespeichert. Der Benutzer kann sie unter „Meine Organisationen“ annehmen. Es wird keine E-Mail versendet.';
+          document.getElementById('siteUserEmail').value='';
+        }catch(e){statusEl.textContent='Einladung fehlgeschlagen: '+e.message;console.error(e);}
+        finally{btn.disabled=false;}
       };
+      document.getElementById('addSchoolBtn').onclick=async()=>{
+        if(!manageGroup)return;
+        const input=document.getElementById('newSchoolInput');
+        const name=sclean(input.value);
+        if(!name){alert('Bitte einen Standortnamen eingeben.');return;}
+        try{
+          await addSchoolToGroup(manageGroup,name);
+          input.value='';
+          await selectGroup(manageGroup);
+        }catch(e){alert('Standort konnte nicht hinzugefügt werden: '+e.message);console.error(e);}
+      };
+      await loadAuthorizedGroups();
     });
   </script>
   <script src="branding-layout.js"></script>
