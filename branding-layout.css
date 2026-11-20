@@ -117,3 +117,19 @@ body.of-branded.of-themed :is(.modal .btn.secondary,.scope-dialog .ghost) {
 #of-brand-footer .of-legal-links a{color:#e0eef8;text-decoration:underline;text-underline-offset:2px}
 #of-brand-footer .of-legal-links a:hover,#of-brand-footer .of-legal-links a:focus-visible{color:#8be7ff}
 @media(max-width:700px){:root{--of-foot:94px}#of-brand-footer img{max-height:33px}#of-brand-footer .of-legal-links{font-size:11px;gap:7px 13px}}
+/* Footer-Reparatur: Hauptseite hat globale nav-Regeln fuer die Seitenleiste. */
+#of-brand-footer > nav.of-legal-links {
+ position:static!important;inset:auto!important;top:auto!important;left:auto!important;right:auto!important;
+ width:auto!important;height:auto!important;min-height:0!important;max-height:none!important;
+ padding:0!important;margin:0!important;border:0!important;background:transparent!important;
+ box-shadow:none!important;transform:none!important;overflow:visible!important;transition:none!important;
+ display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:center!important;
+ justify-self:stretch!important;align-self:center!important;gap:clamp(10px,3vw,28px)!important;color:#e0eef8!important;
+}
+#of-brand-footer > .of-brand-slot {height:auto!important;align-self:center!important;min-height:0!important;}
+#of-brand-footer > .of-brand-slot img {max-height:44px!important;width:auto!important;height:auto!important;}
+
+/* Rechte Logospalte explizit rechts ausrichten: letztes Footer-Kind ist die Link-Navigation. */
+#of-brand-footer > .of-brand-slot:nth-child(3){justify-content:flex-end!important;justify-self:stretch!important;}
+#of-brand-footer > .of-brand-slot:nth-child(1){justify-content:flex-start!important;}
+#of-brand-footer > .of-brand-slot:nth-child(2){justify-content:center!important;}

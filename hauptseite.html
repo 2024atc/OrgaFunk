@@ -127,6 +127,7 @@
 <main>
   <nav id="navMenu">
     <button id="profileBtn">👤 Mein Profil</button>
+    <button id="diagnoseBtn" type="button">🔎 Zugriff diagnostizieren</button>
 
     <button class="submenu-toggle" id="trainerToggle">🧩 Funktionen ▾</button>
     <div class="submenu" id="trainerSub">
@@ -230,6 +231,7 @@ document.getElementById('toggleNavBtn').onclick=()=>{
 };
 document.getElementById('logoutBtn').onclick=async()=>{await auth.signOut();sessionStorage.clear();location.href='index.html';};
 document.getElementById('profileBtn').onclick=()=>location.href='profil.html';
+document.getElementById('diagnoseBtn').onclick=()=>location.href='diagnose-zugriff.html';
 document.getElementById('settingsBtn').onclick=()=>location.href='einstellungen.html';
 
 /* ---------- Header-Bilder ---------- */
@@ -505,21 +507,17 @@ auth.onAuthStateChanged(async user=>{
   const legacy=legacyProfile.exists?(legacyProfile.data()||{}):{};
   const legacyGroup=String(legacy.school||'');
   const master=legacyGroup.toUpperCase()==='MASTER' && String(legacy.role||'').toLowerCase()==='admin';
-  if(legacyGroup && !master){
-    const groupHint=String(legacy.group||legacy.gruppe||'').trim();
-    const groupId=groupHint||legacyGroup;
-    try {
-      const doc=await db.collection('Schulen').doc('MASTER').collection('gruppen').doc(groupId).get();
-      if(doc.exists && !memberships.has(groupId)){
-        const sites=Array.isArray(doc.data()?.School)?doc.data().School:[doc.data()?.School];
-        const groupScope=groupId===legacyGroup;
-        if(groupScope || sites.some(s=>String(s).toLowerCase()===legacyGroup.toLowerCase()))
-          memberships.set(groupId,{role:String(legacy.role||'nutzer').toLowerCase(),scope:groupScope?'gruppe':'standort',school:legacyGroup,legacy:true});
-      }
-    }catch(e){console.warn('Legacy-Zuordnung:',e);}
-  }
+  // Legacy wird ausschliesslich fuer MASTER verwendet. Aktive Organisationsrechte
+  // stammen aus mitgliedschaften/{uid}/organisationen/{organisation}.
   const savedOrg=sessionStorage.getItem('activeOrganisation')||'';
-  let selectedOrg=master?'MASTER':(memberships.has(savedOrg)?savedOrg:(memberships.keys().next().value||''));
+  let masterGroups=[];
+  if(master){
+    try{masterGroups=await loadMasterGroups();}
+    catch(e){console.warn('MASTER-Organisationen konnten nicht geladen werden:',e);}
+  }
+  let selectedOrg=master
+    ? (savedOrg==='MASTER'||masterGroups.some(g=>g.name===savedOrg)?savedOrg:'MASTER')
+    : (memberships.has(savedOrg)?savedOrg:(memberships.keys().next().value||''));
   if(!selectedOrg && !master){
     document.getElementById('activeRolePill').textContent='Keine Organisationsmitgliedschaft gefunden';
     document.getElementById('activeRolePill').style.display='inline-block';
@@ -527,7 +525,7 @@ auth.onAuthStateChanged(async user=>{
   }
   const orgSelect=document.getElementById('orgafunkOrganisationSelect');
   const orgWrap=document.getElementById('orgafunkOrganisationWrap');
-  if(master){orgSelect.add(new Option('MASTER','MASTER'));}
+  if(master){orgSelect.add(new Option('MASTER (Verwaltung)','MASTER')); for(const g of masterGroups)orgSelect.add(new Option(g.name,g.name));}
   else for(const [id] of memberships)orgSelect.add(new Option(id,id));
   orgSelect.value=selectedOrg;
   orgWrap.style.display='flex';
@@ -539,7 +537,7 @@ auth.onAuthStateChanged(async user=>{
   });
 
   let role=(master?'admin':memberships.get(selectedOrg)?.role||'nutzer');
-  let school=master?'MASTER':memberships.get(selectedOrg).school;
+  let school=master?(selectedOrg==='MASTER'?'MASTER':selectedOrg):memberships.get(selectedOrg).school;
   sessionStorage.setItem('role',role);
   sessionStorage.setItem('school',school);
   sessionStorage.setItem('activeOrganisation',selectedOrg);
@@ -553,7 +551,7 @@ auth.onAuthStateChanged(async user=>{
     active=school; sessionStorage.setItem('activeSchool',active.toLowerCase());
   }
 
-  if(!master && memberships.get(selectedOrg)?.scope==='gruppe'){
+  if((!master && memberships.get(selectedOrg)?.scope==='gruppe') || (master && selectedOrg!=='MASTER')){
     try {
       const gd=await db.doc('Schulen/MASTER/gruppen/'+selectedOrg).get();
       const raw=gd.data()?.School;
@@ -604,11 +602,11 @@ auth.onAuthStateChanged(async user=>{
     }
     showChooser=true;
   }else{
-    list=await loadAccessibleSchools(school);
+    list=master ? await loadAccessibleSchools(selectedOrg) : (memberships.get(selectedOrg)?.scope==='standort' ? [school] : await loadAccessibleSchools(selectedOrg));
     list=[...new Map(list.map(s=>[String(s||'').trim().toLowerCase(),String(s||'').trim()]).filter(([k])=>k)).values()];
     // Auch Gruppen mit nur einem Standort erhalten eine Standortauswahl.
     // Einzeln zugeordnete Benutzer brauchen dagegen keinen Umschalter.
-    const isGroup=list.length!==1 || (list.length===1 && list[0].toLowerCase()!==school.toLowerCase());
+    const isGroup=master || memberships.get(selectedOrg)?.scope==='gruppe';
     showChooser=isGroup;
     // Die Gruppen-ID selbst ist kein Standort. Ungültige/stale Auswahl ersetzen.
     if(isGroup && !list.some(s=>s.toLowerCase()===active.toLowerCase()) && list.length){
@@ -625,7 +623,7 @@ auth.onAuthStateChanged(async user=>{
   }
   // Gruppenadmin: Gruppen-ID; MASTER: Gruppe des aktuell gewählten Standorts.
   // Einzelstandort-Konten können optional ein Feld 'group' im Rollendokument besitzen.
-  let functionGroup = upper==='MASTER' ? ofGroupForLocation(list,active) : (showChooser?school:'');
+  let functionGroup = master ? (selectedOrg==='MASTER'?ofGroupForLocation(list,active):selectedOrg) : selectedOrg;
   if(!functionGroup && upper!=='MASTER'){
     try{
       const rd=await db.collection('rollen').doc(user.uid).get();

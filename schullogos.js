@@ -35,27 +35,7 @@
    }catch(err){if(current===requestId)console.warn('Standortlogos konnten nicht geladen werden:',err);}
  };
  window.invalidateSchoolLogos=s=>cache.delete(key(s));
- // Wait for Authentication. Never apply the legacy group ID as if it were a site.
- document.addEventListener('DOMContentLoaded',()=>{
-   if(!window.firebase||!firebase.apps.length)return;
-   firebase.auth().onAuthStateChanged(async user=>{
-     if(!user){++requestId;return;}
-     const selected=sessionStorage.getItem('activeSchool');
-     if(selected && key(selected)!=='master'){
-       await window.applySchoolLogos(selected);
-       return;
-     }
-     try{
-       const d=await firebase.firestore().collection('rollen').doc(user.uid).get();
-       const school=d.exists?d.data().school:null;
-       if(!school||key(school)==='master')return;
-       const group=await firebase.firestore().collection('Schulen').doc(school).get();
-       if(group.exists)return;
-       // Main page may have selected a different site during the awaits.
-       const latest=sessionStorage.getItem('activeSchool');
-       if(latest && key(latest)!==key(school))return;
-       await window.applySchoolLogos(school);
-     }catch(err){console.warn('Logo-Initialisierung:',err);}
-   });
- });
+ // Die Hauptseite steuert die Logo-Auswahl ausschliesslich ueber den
+ // aktiven, autorisierten Standort. Keine zweite, konkurrierende
+ // Auth-/Legacy-Initialisierung und kein Footer-Zugriff.
 })();
