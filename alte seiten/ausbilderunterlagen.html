@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dokumente | OrgaFunk</title>
+  <style>
+    :root { --bg:#000; --text:#fff; --accent-bg:#fff; --accent-text:#000; }
+    * { box-sizing:border-box; }
+    body{
+      margin:0; font-family:Arial, Helvetica, sans-serif;
+      background:var(--bg); color:var(--text);
+      -webkit-font-smoothing:antialiased;
+      min-height:100vh; display:flex; flex-direction:column;
+    }
+
+    /* ===== Header (3 Logos, responsive) ===== */
+    .header{
+      display:flex; justify-content:space-between; align-items:center;
+      padding:12px 16px; gap:12px;
+    }
+    .header img{ height:80px; width:auto; object-fit:contain; }
+    @media (max-width:750px){ .header img{ height:44px; } }
+    @media (max-width:480px){ .header img{ height:40px; } }
+
+    /* ===== Viewer ===== */
+    .viewer{
+      flex:1; display:flex; justify-content:center; align-items:center; padding:20px;
+    }
+    .viewer iframe{
+      width:100%; max-width:1000px; height:80vh;
+      border:none; border-radius:10px; background:#fff; /* ⚪ Weißer Hintergrund */
+      box-shadow:0 4px 16px rgba(0,0,0,.35);
+    }
+
+    /* ===== Home-Button ===== */
+    .home-btn{
+      position:fixed; left:18px; bottom:18px;
+      background:#fff; border:none; border-radius:50%;
+      padding:10px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.35);
+    }
+    .home-btn img{ width:32px; height:32px; display:block; }
+  </style>
+  <link rel="stylesheet" href="branding-layout.css">
+</head>
+<body>
+  <!-- Webviewer: URL kommt aus Firestore -->
+  <div class="viewer">
+    <iframe id="unterlagenFrame" src="about:blank" title="Dokumente" allowfullscreen></iframe>
+  </div>
+
+  <!-- Home-Button -->
+  <button class="home-btn" onclick="location.href='hauptseite.html'">
+    <img src="home.jpg" alt="Home">
+  </button>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
+
+  <!-- Zentrale Firebase-Config -->
+  <script src="firebase-config.js"></script>
+<script src="schullogos.js"></script>
+
+  <script>
+    // ---- Firebase init (nur einmal) ----
+    if (!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+
+    async function resolveSchool(user){
+      let school = (sessionStorage.getItem('activeSchool') || sessionStorage.getItem('school') || '').trim().toLowerCase();
+      if (!school) {
+        try {
+          const snap = await db.collection('rollen').doc(user.uid).get();
+          if (snap.exists) {
+            school = (snap.data().school || '').toString().trim().toLowerCase();
+            if (school) sessionStorage.setItem('school', school);
+          }
+        } catch (e) { console.error('[resolveSchool]', e); }
+      }
+      return school || 'master';
+    }
+
+    async function getDocFlexible(col, key){
+      const tries = [
+        key,
+        key?.toUpperCase?.(),
+        key?.charAt?.(0)?.toUpperCase?.() + key?.slice?.(1)?.toLowerCase?.(),
+        key?.toLowerCase?.()
+      ].filter(Boolean);
+      for (const id of tries){
+        try{
+          const snap = await db.collection(col).doc(id).get();
+          if (snap.exists) return { snap, id };
+        }catch(e){}
+      }
+      return null;
+    }
+
+    async function loadUnterlagenIframeForSchool(schoolKey){
+      const frame = document.getElementById('unterlagenFrame');
+      if (!frame) return;
+
+      let doc = await getDocFlexible('links', schoolKey);
+      if (!doc) doc = await getDocFlexible('links', 'master');
+
+      let url = null;
+      if (doc){
+        const d = doc.snap.data() || {};
+        url =
+          d.ausbilderunterlagen ||
+          d.Ausbilderunterlagen ||
+          d.unterlagen ||
+          d.trainerunterlagen ||
+          d.docsUrl ||
+          d.docsURL ||
+          d.drive ||
+          null;
+      }
+
+      if (typeof url === 'string' && /^https:\/\/(drive\.google\.com|docs\.google\.com)\//i.test(url.trim())){
+        // Google Drive Ordner lassen sich über die eingebettete Ordneransicht anzeigen.
+        const match = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+        frame.src = match ? 'https://drive.google.com/embeddedfolderview?id=' + encodeURIComponent(match[1]) + '#list' : url;
+      } else if (!url || !String(url).trim()) {
+        location.href = 'dokumente-hilfe.html';
+      } else {
+        frame.src = 'about:blank';
+        const viewer = document.querySelector('.viewer');
+        const note = document.createElement('p');
+        note.textContent = 'Der hinterlegte Dokumentenlink ist kein unterstützter Google-Drive-Link. Bitte in den Einstellungen prüfen.';
+        viewer.replaceChildren(note);
+      }
+    }
+
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) { location.href = "index.html"; return; }
+      try {
+        const school = await resolveSchool(user);
+        await loadUnterlagenIframeForSchool(school);
+      } catch(e){
+        console.error('[Unterlagen/Init]', e);
+        document.querySelector('.viewer').textContent='Dokumente konnten nicht geladen werden. Bitte Verbindung und Zugriffsrechte prüfen.';
+      }
+    });
+  </script>
+  <script src="branding-layout.js"></script>
+</body>
+</html>

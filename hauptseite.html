@@ -132,22 +132,19 @@
     <button class="submenu-toggle" id="trainerToggle">🧩 Funktionen ▾</button>
     <div class="submenu" id="trainerSub">
       <button data-function-id="probetraining" onclick="location.href='Probetraining.html'">📅 Probetraining</button>
-      <button data-function-id="protokoll" onclick="location.href='protokollview.html'">📓 Protokoll</button>
-      <button data-function-id="ausbilderunterlagen" onclick="location.href='ausbilderunterlagen.html'">📘 Ausbilderunterlagen</button>
-      <button data-function-id="vorlagen" id="templatesBtn">📂 Vorlagen</button>
-      <button data-function-id="trainingsausruestung" onclick="location.href='links.html'">🧰 Trainingsausrüstung</button>
-      <button data-function-id="spiele" onclick="location.href='spiele.html'">🎲 Spiele</button>
-      <button data-function-id="bilder" onclick="location.href='bilder.html'">🖼️ Bilder</button>
-      <button data-function-id="tiger_videos" onclick="location.href='Tiger.html'">🎥 Tiger-Videos</button>
-      <button data-function-id="fighter_videos" onclick="location.href='fighter.html'">🎥 Fighter-Videos</button>
-      <button data-function-id="trainingszeiten" onclick="location.href='trainingszeiten.html'">🕒 Trainingszeiten</button>
-      <!-- Schulübersicht: ohne Inline-Handler, nur ID -->
-      <button data-function-id="schuluebersicht" id="schoolOverviewBtn">🏫 Schulübersicht</button>
-      <button data-function-id="anleitungen" onclick="location.href='anleitungen.html'">📖 Anleitungen</button>
+      <button data-function-id="protokoll" onclick="location.href='berichte.html'">📓 Protokoll</button>
+      <button data-function-id="ausbilderunterlagen" onclick="location.href='dokumente.html'">📘 Ausbilderunterlagen</button>
+      <button data-function-id="vorlagen" id="templatesBtn" onclick="location.href='vorlagen.html'">📂 Vorlagen</button>
+      <button data-function-id="trainingsausruestung" onclick="location.href='materialuebersicht.html'">🧰 Trainingsausrüstung</button>
+
+      <button data-function-id="schuluebersicht" id="schoolOverviewBtn" onclick="location.href='standortuebersicht.html'">🏫 Standortübersicht</button>
+
       <!-- Checkliste: jetzt auch ohne Inline-Handler -->
       <button data-function-id="checkliste" id="checklistBtn">✅ Checkliste</button>
       <!-- Snackliste ohne Inline-Handler -->
       <button data-function-id="snackliste" id="snackListBtn">🍎 Snackliste</button>
+      <div id="customPageMenu"></div>
+      <button id="addCustomPageBtn" type="button" style="display:none">➕ Seite hinzufügen</button>
     </div>
 
     <button class="submenu-toggle" id="adminToggle" style="display:none;">🛠️ Verwaltung ▾</button>
@@ -155,9 +152,9 @@
       <button id="calendarBtn">📅 Kalender</button>
       <button onclick="location.href='adminprobetraining.html'">📅 Probetraining Anlegen</button>
       <button onclick="location.href='urkunde.html'">📅 Urkunde Erstellen</button>
+       <button onclick="location.href='berichtdesign.html'">🎨 Bericht-Design gestalten</button>
       <button onclick="location.href='registrierung.html'">🧾 Registrierung</button>
       <button onclick="location.href='ausbilderverwaltung.html'">👥 Ausbilderverwaltung</button>
-      <button onclick="location.href='protokoll.html'">🧾 Protokoll</button>
       <button onclick="location.href='session-admin.html'">🏋️‍♂️ Ausbildertraining erstellen</button>
       <button id="planBtn">🗓️ Trainingsplan verwalten</button>
       <button id="newsTickerBtn" style="display:none;">📰 Newsticker</button>
@@ -200,7 +197,7 @@
 <!-- Benachrichtigungs-Modal -->
 <div id="protoModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="protoModalTitle">
   <div class="modal">
-    <h3 id="protoModalTitle">Neues Trainingsprotokoll verfügbar</h3>
+    <h3 id="protoModalTitle">Neuer Bericht verfügbar</h3>
     <p>Bitte aufmerksam lesen.</p>
     <div class="actions">
       <button class="btn secondary" id="btnIgnoreProto">Ignorieren</button>
@@ -350,6 +347,25 @@ function ofGroupForLocation(groups,location){
   return groups.find(g=>g.schools.some(s=>s.toLowerCase()===String(location||'').toLowerCase()))?.name||'';
 }
 
+/* ---------- Selbst angelegte Gruppenseiten ---------- */
+let ofCustomGroup='', ofCustomAdmin=false;
+async function ofLoadCustomPages(group,mayManage){
+  const host=document.getElementById('customPageMenu'), add=document.getElementById('addCustomPageBtn');
+  host.replaceChildren();ofCustomGroup=group||'';ofCustomAdmin=!!mayManage;
+  add.style.display=ofCustomAdmin&&group?'':'none';
+  if(!group || group.toUpperCase()==='MASTER')return;
+  try{
+    const snapshot=await db.collection('eigeneSeiten').doc(group).collection('seiten').get();
+    const pages=snapshot.docs.filter(x=>x.data().aktiv!==false).sort((a,b)=>(a.data().order||100)-(b.data().order||100));
+    for(const p of pages){const b=document.createElement('button');b.type='button';b.textContent='☁️ '+(p.data().name||'Neue Seite');
+      b.onclick=()=>{const d=p.data();if(d.type==='website'&&d.displayMode==='external'){try{const u=new URL(d.url);if(u.protocol==='https:'){window.open(u.href,'_blank','noopener,noreferrer');return}}catch(e){console.warn('Ungültige Seiten-URL',e)}}location.href='customseite.html?gruppe='+encodeURIComponent(group)+'&seite='+encodeURIComponent(p.id)};
+      host.appendChild(b);
+    }
+  }catch(err){console.warn('Eigene Seiten konnten nicht geladen werden:',err)}
+}
+document.getElementById('addCustomPageBtn').addEventListener('click',()=>{
+  if(ofCustomAdmin&&ofCustomGroup)location.href='seitenverwaltung.html?gruppe='+encodeURIComponent(ofCustomGroup);
+});
 /* ---------- Newsticker ---------- */
 let unsubscribeTicker=null;
 function renderTicker(data){
@@ -438,14 +454,52 @@ async function hasNewReadAckFor(user,schoolUpper,dateKey){
   }catch(e){ dlog('ack read err '+(e?.code||e)); return false;
   }
 }
+// Nur wirklich vorhandene Berichte melden, deren Lesebestaetigung fehlt.
+// Die Bestaetigung bleibt dauerhaft gueltig; ein altes expiresAt wird ignoriert.
 async function shouldShowProtocolModal(user,schoolUpper){
-  const params=new URLSearchParams(location.search); if(params.get('forceProtoModal')==='1'){ dlog('FORCED'); return true; }
-  const school=String(schoolUpper||'').trim(); dlog('school='+school+' email='+signedInEmail());
-  let latestKey=await findLatestProtocolDateKeyUpToToday(school);
-  if(!latestKey) latestKey=await findLatestPastSessionDateKey(school);
-  dlog('dateKey='+(latestKey||'—')); if(!latestKey) return false;
-  const okNew=await hasNewReadAckFor(user,school,latestKey); if(okNew) return false;
-  dlog('SHOW modal'); return true;
+  const modal=document.getElementById('protoModal');
+  delete modal.dataset.reportDate;
+  const school=String(schoolUpper||'').trim().toLowerCase();
+  const email=(user?.email||'').trim();
+  if(!school || school==='master' || !email) return false;
+  const datesRef=db.collection('protocols').doc(school).collection('dates');
+  const today=ymd(todayLocal());
+  let candidates=[];
+  try {
+    // Keine endAt-Einschraenkung: die kann bei manchen Daten/Abfragen
+    // zu einer leeren Trefferliste fuehren.
+    const snap=await datesRef.orderBy(firebase.firestore.FieldPath.documentId(),'desc').limit(100).get();
+    candidates=snap.docs.filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d.id)&&d.id<=today);
+    dlog('Berichte gefunden: '+candidates.length+' Standort: '+school);
+  } catch(e) {
+    console.warn('Berichtsliste nicht abrufbar, pruefe Einzelberichte:',e);
+    // Fallback mit Einzelabrufen statt Collection-Query.
+    for(let i=0;i<90;i++){
+      const date=todayLocal();date.setDate(date.getDate()-i);
+      const key=ymd(date);
+      try{
+        const doc=await datesRef.doc(key).get();
+        if(doc.exists)candidates.push(doc);
+      }catch(err){console.warn('Bericht nicht lesbar: '+key,err);break;}
+    }
+  }
+  for(const report of candidates){
+    try{
+      const ack=await db.collection('protocols').doc(school).collection('read')
+        .doc(report.id).collection('byEmail').doc(email).get();
+      if(!ack.exists || ack.data()?.read!==true){
+        modal.dataset.reportDate=report.id;
+        dlog('Neuer ungelesener Bericht: '+report.id);
+        return true;
+      }
+    }catch(e){
+      console.warn('Lesebestaetigung konnte nicht geprueft werden:',e);
+      // Keine irrefuehrende Meldung, solange der Lesestatus unbekannt ist.
+      return false;
+    }
+  }
+  dlog('Keine ungelesenen Berichte gefunden fuer '+school);
+  return false;
 }
 
 /* ---------- Gemeinsamer Schulwahl-Dialog ---------- */
@@ -586,7 +640,7 @@ auth.onAuthStateChanged(async user=>{
   await applyHeaderBySchool(active);
   if (window.orgafunkApplyTheme) window.orgafunkApplyTheme(active);
   await setLink('oneNoteBtn',active,['onenote','OneNote','OneNoteURL']);
-  await setLink('templatesBtn',active,['vorlagen']);
+
   await setLink('driveBtn',active,['drive']);
   await setupCalendarForSchool(active);
   startTickerListener(active);
@@ -615,7 +669,7 @@ auth.onAuthStateChanged(async user=>{
       chooseLbl.textContent=active;
       await applyHeaderBySchool(active);
       await setLink('oneNoteBtn',active,['onenote','OneNote','OneNoteURL']);
-      await setLink('templatesBtn',active,['vorlagen']);
+
       await setLink('driveBtn',active,['drive']);
       await setupCalendarForSchool(active);
       startTickerListener(active);
@@ -631,6 +685,7 @@ auth.onAuthStateChanged(async user=>{
     }catch(e){console.warn('Gruppenzuordnung:',e);}
   }
   await ofLoadFunctions(functionGroup);
+  await ofLoadCustomPages(functionGroup, isAdminLike && (master || memberships.get(selectedOrg)?.scope==='gruppe'));
   chooseBtn.style.display=showChooser?'inline-block':'none';
 
   // Dialog öffnen (auch extern nutzbar)
@@ -654,25 +709,6 @@ auth.onAuthStateChanged(async user=>{
     // Alles gut: mit gewählter Schule weiter
     location.href = `snackliste.html?school=${encodeURIComponent(chosen.toLowerCase())}`;
   };
-
-  // 🏫 Schulübersicht abhängig von aktiver Schule öffnen
-  const schoolOverviewBtn = document.getElementById('schoolOverviewBtn');
-  if (schoolOverviewBtn) {
-    schoolOverviewBtn.onclick = () => {
-      const baseSchool = (sessionStorage.getItem('school') || school || '').trim();
-      let chosen = (sessionStorage.getItem('activeSchool') || active || baseSchool || 'master').trim();
-
-      // Falls noch MASTER aktiv, aber eine echte Schule hinterlegt ist → Basis-Schule nutzen
-      if (chosen.toUpperCase() === 'MASTER' && baseSchool) {
-        chosen = baseSchool;
-      }
-
-      const folder = chosen.toLowerCase();
-      // Ziel: "<schule>/schuluebersicht/schuluebersicht.html"
-      const target = `${folder}/schuluebersicht/schuluebersicht.html`;
-      location.href = target;
-    };
-  }
 
   // ✅ Checkliste abhängig von aktiver Schule öffnen
   const checklistBtn = document.getElementById('checklistBtn');
@@ -710,13 +746,14 @@ document.addEventListener('click',async e=>{
     await applyHeaderBySchool(v);
     if (window.orgafunkApplyTheme) window.orgafunkApplyTheme(v);
     await setLink('oneNoteBtn',v,['onenote','OneNote','OneNoteURL']);
-    await setLink('templatesBtn',v,['vorlagen']);
+
     await setLink('driveBtn',v,['drive']);
     await setupCalendarForSchool(v);
     document.getElementById('chooseSchoolDlg').style.display='none';
     startTickerListener(v);
+    try{document.getElementById('protoModal').style.display=(await shouldShowProtocolModal(auth.currentUser,v))?'flex':'none';}catch(e){console.warn(e);}
     if((sessionStorage.getItem('school')||'').toUpperCase()==='MASTER'){
-      try{await ofLoadFunctions(ofGroupForLocation(await loadMasterGroups(),v));}
+      try{const g=ofGroupForLocation(await loadMasterGroups(),v);await ofLoadFunctions(g);await ofLoadCustomPages(g,true);}
       catch(e){console.warn('Funktionsverwaltung nach Standortwechsel:',e);ofRenderFunctions();}
     }
 
@@ -732,7 +769,7 @@ document.addEventListener('click',async e=>{
     } else planBtn.style.display='none';
   }
 
-  if(b.id==='btnOpenProto'){ location.href='protokollview.html'; }
+  if(b.id==='btnOpenProto'){ const key=document.getElementById('protoModal').dataset.reportDate; location.href='berichte.html'+(key?'?datum='+encodeURIComponent(key):''); }
   if(b.id==='btnIgnoreProto'){ document.getElementById('protoModal').style.display='none'; }
 });
 </script>

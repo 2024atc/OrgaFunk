@@ -157,7 +157,7 @@
         <p class="hint">Bestehende Mitgliedschaften in anderen Organisationen werden nicht verändert. Die Einladung wird in OrgaFunk gespeichert, aber nicht automatisch als E-Mail verschickt. Der Benutzer findet sie unter „Meine Organisationen“. Für die sichere Annahme muss seine E-Mail-Adresse bestätigt sein.</p>
       </div>
     </div><div class="card" id="functionsAdmin" style="display:none;">
-      <div class="card-head"><h3>Funktionsverwaltung</h3>
+      <div class="card-head"><h3>3. Funktionsverwaltung</h3>
         <button id="toggleFunctions" class="chev-btn" type="button" aria-controls="functionsAdminBody" aria-expanded="false" title="Aufklappen"><span class="chev">▼</span></button>
       </div>
       <div id="functionsAdminBody" class="collapsible-body" hidden>
@@ -712,7 +712,7 @@ if(schools.some(s=>s.toLowerCase()===key.toLowerCase())) throw new Error('Stando
       async function selectGroup(id){
         const version=++loadVersion;
         manageGroup='';
-        ['organisationBereich','organisationCards','standortPicker','schoolAdmin','groupUsersAdmin'].forEach(x=>display(x,false));
+        ['organisationBereich','organisationCards','standortPicker','schoolAdmin','groupUsersAdmin','functionsAdmin'].forEach(x=>display(x,false));
         resetSite();
         if(!id)return;
         if(!authorizedGroups.includes(id)){setStatus('Für diese Organisation besteht keine Administratorberechtigung.');return;}
@@ -731,7 +731,7 @@ if(schools.some(s=>s.toLowerCase()===key.toLowerCase())) throw new Error('Stando
           if(result.id!==id || !result.schools.length && !(await groupsRef().doc(id).get()).exists){throw Error('Organisation nicht gefunden.');}
           manageGroup=id;
           siteList=result.schools;
-          display('organisationBereich',true);display('organisationCards',true);display('standortPicker',true);display('schoolAdmin',true);display('groupUsersAdmin',true);
+          display('organisationBereich',true);display('organisationCards',true);display('standortPicker',true);display('schoolAdmin',true);display('groupUsersAdmin',true);display('functionsAdmin',true);
           document.getElementById('groupLabel').textContent=id;
           document.getElementById('groupUsersGroupLabel').textContent=id;
           renderChips(document.getElementById('schoolsList'),siteList.map(x=>x.startsWith(id+'__')?x.slice(id.length+2):x));

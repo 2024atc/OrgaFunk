@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terminübersicht | OrgaFunk</title>
+<style>
+:root{--bg:#000;--text:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#fff;font-family:Arial,sans-serif}
+.wrap{padding:14px}
+.week{margin-bottom:20px;background:#181818;border:1px solid #444;border-radius:10px;overflow:hidden}
+.week-title{background:#252525;padding:10px 14px;font-weight:bold;font-size:20px}
+.days{display:grid;grid-template-columns:repeat(5,1fr)}
+.day{border-right:1px solid #333}.day:last-child{border-right:none}
+.dayhead{background:#222;padding:10px;text-align:center;border-bottom:1px solid #333}
+.slot{margin:8px;border:1px solid #555;border-radius:8px;overflow:hidden}
+.time{background:#333;padding:6px;text-align:center;font-weight:bold}
+.content{background:#111;padding:8px;min-height:72px}
+.free{text-align:center;color:#666;padding-top:18px}
+.home-btn{position:fixed;left:18px;bottom:18px;border:none;background:#fff;border-radius:50%;padding:10px;cursor:pointer}
+.home-btn img{width:32px;height:32px}
+/* Standort-Farbschema: Flächen übernehmen die eingestellte Text-/Hintergrundfarbe. */
+body.of-branded .week{background:color-mix(in srgb,currentColor 7%,transparent);border-color:color-mix(in srgb,currentColor 28%,transparent)}
+body.of-branded .week-title{background:color-mix(in srgb,currentColor 10%,transparent)}
+body.of-branded .day{border-color:color-mix(in srgb,currentColor 20%,transparent)}
+body.of-branded .dayhead{background:color-mix(in srgb,currentColor 8%,transparent);border-color:color-mix(in srgb,currentColor 20%,transparent)}
+body.of-branded .slot{border-color:color-mix(in srgb,currentColor 30%,transparent)}
+body.of-branded .time{background:color-mix(in srgb,currentColor 15%,transparent)}
+body.of-branded .slot .content{background:color-mix(in srgb,currentColor 4%,transparent)}
+body.of-branded .free{color:inherit;opacity:.65}
+@media(max-width:850px){.days{grid-template-columns:repeat(5,minmax(160px,1fr));overflow-x:auto}.week{overflow-x:auto}}
+</style>
+  <link rel="stylesheet" href="branding-layout.css">
+</head>
+<body>
+<div class="wrap"><div id="calendar"></div></div>
+
+<button class="home-btn" onclick="location.href='hauptseite.html'"><img src="home.jpg"></button>
+
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="schullogos.js"></script>
+
+<script>
+if(!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
+const auth=firebase.auth();
+const db=firebase.firestore();
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+
+const labels=["Vergangene Woche","Aktuelle Woche","Nächste Woche","Übernächste Woche"];
+const dayNames=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag"];
+const TIMES = {
+    "Montag": [
+        " ",
+        "17:30 - 18:15",
+        "18:30 - 19:15",
+        "19:30 - 21:00"
+    ],
+
+    "Dienstag": [
+		"16:30 - 17:15",
+        "17:30 - 18:15",
+        "18:30 - 20:00"
+    ],
+
+    "Mittwoch": [
+        "16:30 - 17:15",
+        "17:30 - 18:15",
+        "18:30 - 19:15",
+        "19:30 - 21:00"
+    ],
+
+    "Donnerstag": [
+        "16:30 - 17:15",
+		"17:30 - 18:15",
+        "18:30 - 20:00"
+    ],
+
+    "Freitag": [
+		"16:30 - 17:15",
+        "17:30 - 18:15"
+    ]
+};
+
+function monday(d){d=new Date(d);const wd=(d.getDay()+6)%7;d.setDate(d.getDate()-wd);d.setHours(0,0,0,0);return d;}
+function kw(date){const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));const y=new Date(Date.UTC(d.getUTCFullYear(),0,1));return Math.ceil((((d-y)/86400000)+1)/7);}
+
+function buildCalendar(){
+ const root=document.getElementById("calendar");root.innerHTML="";
+ const cm=monday(new Date());
+ for(let w=-1;w<=2;w++){
+   const ws=new Date(cm);ws.setDate(cm.getDate()+w*7);
+   const week=document.createElement("div");week.className="week";
+   week.innerHTML=`<div class="week-title">KW ${kw(ws)} – ${labels[w+1]}</div>`;
+   const grid=document.createElement("div");grid.className="days";
+   for(let d=0;d<5;d++){
+      const dt=new Date(ws);dt.setDate(ws.getDate()+d);
+      const ds=dt.toISOString().split("T")[0];
+      const day=document.createElement("div");day.className="day";
+      day.innerHTML=`<div class="dayhead">${dayNames[d]}<br>${dt.toLocaleDateString("de-DE")}</div>`;
+      const dayTimes = TIMES[dayNames[d]];
+
+dayTimes.forEach((t,index)=>{
+        const slot=document.createElement("div");
+        slot.className="slot";
+        slot.innerHTML=`<div class="time">${t}</div>
+        <div class="content" id="slot-${ds}-${index}">
+          <div class="free">Frei</div>
+         
+        </div>`;
+        day.appendChild(slot);
+      });
+      grid.appendChild(day);
+   }
+   week.appendChild(grid);root.appendChild(week);
+ }
+}
+
+async function loadProbetrainings(school){
+
+ let query = db.collection("probetrainings");
+
+if (school === "melsungen" || school === "guxhagen"|| school === "degenhardt") {
+    query = query.where("school", "in", ["melsungen", "guxhagen","degenhardt"]);
+} else {
+    query = query.where("school", "==", school);
+}
+
+const snap = await query.get();
+
+ snap.forEach(doc=>{
+    const data=doc.data();
+    const el=document.getElementById(`slot-${data.date}-${data.slot}`);
+    if(!el) return;
+
+    let html="";
+    if(Array.isArray(data.participants)){
+        html=data.participants.map((p,idx)=>`
+<div style="display:flex;align-items:center;gap:8px;margin:4px 0">
+<input type="checkbox" ${p.present?'checked':''}
+ onchange="togglePresent('${doc.id}',${idx},this.checked)">
+<span><b>${p.name ?? ""}</b> ${p.age ? "(" + p.age + ")" : ""}</span>
+</div>`).join("");
+    }else if(data.name){
+        html=`<div style="font-weight:bold">${data.name}</div><div style="color:#bbb">${data.age ?? ""} Jahre</div>`;
+    }else{
+        html='<div class="free">Frei</div>';
+    }
+
+    el.innerHTML=html;
+ });
+}
+
+
+async function togglePresent(docId,index,value){
+  const ref=db.collection("probetrainings").doc(docId);
+  const snap=await ref.get();
+  if(!snap.exists) return;
+  const data=snap.data();
+  if(!Array.isArray(data.participants)) return;
+  data.participants[index].present=value;
+  await ref.update({participants:data.participants});
+}
+
+
+auth.onAuthStateChanged(async user=>{
+ if(!user){location.href="index.html";return;}
+ let active=(sessionStorage.getItem("activeSchool")||"").trim().toLowerCase();
+ let base=(sessionStorage.getItem("school")||"").trim().toLowerCase();
+ if(!active&&!base){
+   const s=await db.collection("rollen").doc(user.uid).get();
+   if(s.exists){base=(s.data().school||"").toLowerCase();sessionStorage.setItem("school",base);}
+ }
+ const school=active||base||"master";
+ // Betreiberlogos werden ausschließlich vom zentralen Branding-Layout erzeugt.
+ // Das Standort-Farbschema wird nach dem Login mit der aktiven Standort-ID geladen.
+ if(window.orgafunkApplyTheme) await window.orgafunkApplyTheme(school);
+ buildCalendar();
+ await loadProbetrainings(school);
+});
+</script>
+  <script src="branding-layout.js"></script>
+</body>
+</html>

@@ -15,9 +15,26 @@
  }
  async function loadValues(s){
    const db=firebase.firestore();
-   const docs=await Promise.all(slots.map(slot=>db.collection('schullogos').doc(s+'_'+slot).get()));
-   const values=docs.map(d=>d.exists?d.data().image:null);
-   cache.set(s,values);
+   // Einzelne fehlende Logodokumente koennen bei Nicht-MASTER-Konten
+   // permission-denied ausloesen. Das darf die anderen Logos nicht blockieren.
+   const results=await Promise.allSettled(slots.map(slot=>
+     db.collection('schullogos').doc(s+'_'+slot).get()
+   ));
+   const values=results.map((result,i)=>{
+     if(result.status==='rejected'){
+       const err=result.reason;
+       // Nicht vorhandene Dokumente koennen durch die aktuellen Regeln
+       // als permission-denied erscheinen. Pro Position Standardlogo behalten.
+       if(err?.code!=='permission-denied')
+         console.warn('Logo '+slots[i]+' konnte nicht geladen werden:',err);
+       return null;
+     }
+     const doc=result.value;
+     return doc.exists ? doc.data()?.image ?? null : null;
+   });
+   // Nur vollstaendig erfolgreiche Abfragen cachen: nach spaeterer
+   // Berechtigungskorrektur sollen zuvor verweigerte Logos neu laden.
+   if(results.every(r=>r.status==='fulfilled'))cache.set(s,values);
    return values;
  }
  window.applySchoolLogos=async function(school){
