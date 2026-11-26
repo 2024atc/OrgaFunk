@@ -1,8 +1,0 @@
-OrgaFunk – Branding-Stand 1
-
-Header: ATC links, OrgaFunk Mitte, Drakory Games rechts.
-Login (index.html und login.html): Immer feste Logos, unabhängig von der Schule.
-Andere Seiten: Fallback über branding/, bestehende individuelle Schullogos in Firestore bleiben erhalten.
-Login-Styling: dunkelblau/cyan an ATC-Farben angelehnt. Die ATC-Website wurde nicht 1:1 ausgelesen; für exakte Übernahme bitte CSS/Screenshot bereitstellen.
-
-WICHTIG: Das Projekt verwendet weiterhin die bisherige Firebase-Konfiguration und Datenbank. Änderungen in der Anwendung können weiterhin die WTplus-Daten betreffen.
